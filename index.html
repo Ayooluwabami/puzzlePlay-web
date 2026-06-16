@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Puzzle Play</title>
+    <script>
+      // Catch any unhandled JS errors before React loads
+      window.onerror = function(msg, src, line, col, err) {
+        document.body.style.background = '#0A0D14';
+        document.body.style.color = '#F87171';
+        document.body.style.fontFamily = 'monospace';
+        document.body.style.padding = '32px';
+        document.body.style.whiteSpace = 'pre-wrap';
+        document.body.innerHTML = '<b style="font-size:18px;color:#FCA5A5">JS Error</b>\n\n' + msg + '\n\nFile: ' + src + ':' + line + ':' + col + '\n\n' + (err && err.stack ? err.stack : '');
+        return false;
+      };
+      window.onunhandledrejection = function(e) {
+        window.onerror(String(e.reason), '', 0, 0, e.reason instanceof Error ? e.reason : null);
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
