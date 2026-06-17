@@ -4,13 +4,22 @@ import {
   type WSLevel, type PlacedWord,
 } from '../utils/wordSearchGenerator';
 
+const FOUND_COLORS = [
+  '#EF4444', '#F97316', '#EAB308', '#22C55E',
+  '#06B6D4', '#6366F1', '#EC4899', '#8B5CF6',
+  '#14B8A6', '#F59E0B', '#84CC16', '#0EA5E9',
+];
+
 export interface FoundWord {
   word: string;
   cells: { row: number; col: number }[];
+  color: string;
 }
 
 interface WSState {
   level: WSLevel;
+  theme: string;
+  words: string[];
   grid: string[][];
   placed: PlacedWord[];
   found: FoundWord[];
@@ -35,6 +44,8 @@ let tickTimer: ReturnType<typeof setInterval> | null = null;
 
 export const useWordSearchStore = create<WSState>((set, get) => ({
   level: WS_LEVELS[0],
+  theme: WS_LEVELS[0].puzzles[0].theme,
+  words: WS_LEVELS[0].puzzles[0].words,
   grid: [],
   placed: [],
   found: [],
@@ -50,12 +61,20 @@ export const useWordSearchStore = create<WSState>((set, get) => ({
     const level = WS_LEVELS.find(l => l.id === levelId) ?? WS_LEVELS[0];
     const { puzzleCounters } = get();
     const counter = (puzzleCounters[levelId] ?? 0) + 1;
+
+    // Cycle through puzzle sets — different theme & words every game
+    const puzzleIdx = (counter - 1) % level.puzzles.length;
+    const puzzle = level.puzzles[puzzleIdx];
+
     const levelBase = levelId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
     const seed = counter * 99991 + levelBase * 1000;
-    const { grid, placed } = generateWordSearch(level, seed);
+
+    const { grid, placed } = generateWordSearch(level, seed, puzzle);
+
     if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     set({
-      level, grid, placed, found: [], selStart: null, selCells: [], hintCells: [],
+      level, theme: puzzle.theme, words: puzzle.words,
+      grid, placed, found: [], selStart: null, selCells: [], hintCells: [],
       hintsLeft: 3, seconds: 0, isComplete: false,
       puzzleCounters: { ...puzzleCounters, [levelId]: counter },
     });
@@ -86,7 +105,8 @@ export const useWordSearchStore = create<WSState>((set, get) => ({
     const alreadyFound = found.some(f => f.word === match?.word);
 
     if (match && !alreadyFound) {
-      const newFound = [...found, { word: match.word, cells }];
+      const color = FOUND_COLORS[found.length % FOUND_COLORS.length];
+      const newFound = [...found, { word: match.word, cells, color }];
       const isComplete = newFound.length === placed.length;
       if (isComplete && tickTimer) { clearInterval(tickTimer); tickTimer = null; }
       set({ found: newFound, isComplete, selStart: null, selCells: [] });
@@ -100,9 +120,9 @@ export const useWordSearchStore = create<WSState>((set, get) => ({
   },
 
   useHint() {
-    const { placed, found, hintsLeft } = get();
+    const { placed, found, words, hintsLeft } = get();
     if (hintsLeft <= 0) return;
-    const unfound = placed.filter(p => !found.some(f => f.word === p.word));
+    const unfound = placed.filter(p => words.includes(p.word) && !found.some(f => f.word === p.word));
     if (unfound.length === 0) return;
     const target = unfound[Math.floor(Math.random() * unfound.length)];
     const cells: { row: number; col: number }[] = [];

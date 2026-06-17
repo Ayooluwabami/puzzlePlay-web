@@ -19,6 +19,7 @@ interface JigsawState {
   selectedTrayId: number | null;
   hintsLeft: number;
   hintCell: { row: number; col: number } | null;
+  flashCorrect: number[];
   seconds: number;
   isComplete: boolean;
   imageCursors: Record<string, number>;
@@ -43,6 +44,7 @@ export const useJigsawStore = create<JigsawState>((set, get) => ({
   selectedTrayId: null,
   hintsLeft: 3,
   hintCell: null,
+  flashCorrect: [],
   seconds: 0,
   isComplete: false,
   imageCursors: {},
@@ -74,7 +76,7 @@ export const useJigsawStore = create<JigsawState>((set, get) => ({
     set({
       level, imageSeed: actualSeed, imageUrl: getImageUrl(actualSeed),
       pieces, tray, board,
-      selectedTrayId: null, hintsLeft: 3, hintCell: null, seconds: 0, isComplete: false,
+      selectedTrayId: null, hintsLeft: 3, hintCell: null, flashCorrect: [], seconds: 0, isComplete: false,
       imageCursors: newCursors,
     });
   },
@@ -111,6 +113,11 @@ export const useJigsawStore = create<JigsawState>((set, get) => ({
 
     const isComplete = newBoard.every(r => r.every(cell => cell?.correct));
     set({ board: newBoard, tray: newTray, isComplete });
+
+    if (correct) {
+      set(s => ({ flashCorrect: [...s.flashCorrect, pieceId] }));
+      setTimeout(() => set(s => ({ flashCorrect: s.flashCorrect.filter(id => id !== pieceId) })), 750);
+    }
   },
 
   returnToTray(row: number, col: number) {

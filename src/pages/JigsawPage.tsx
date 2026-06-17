@@ -4,9 +4,16 @@ import { useJigsawStore } from '../store/jigsawStore';
 import { JIGSAW_LEVELS, IMAGE_COUNT, getImageUrl } from '../utils/jigsawData';
 import { formatTime } from '../utils/sudokuGenerator';
 
-const ACCENT = '#FBBF24';
-const ACCENT_DIM = 'rgba(251,191,36,0.12)';
-const ACCENT_BORDER = 'rgba(251,191,36,0.25)';
+const PAGE_BG       = '#0B0F1A';
+const BOARD_BG      = '#1A1F2E';
+const TRAY_BG       = '#131720';
+const ACCENT        = '#F59E0B';
+const ACCENT_DIM    = 'rgba(245,158,11,0.1)';
+const ACCENT_BORDER = 'rgba(245,158,11,0.22)';
+const BDR           = 'rgba(255,255,255,0.08)';
+const T1            = '#F1F5F9';
+const T2            = '#94A3B8';
+const T3            = '#475569';
 
 // ─── Jigsaw shape helpers ────────────────────────────────────────────────────
 
@@ -128,8 +135,8 @@ export default function JigsawPage() {
 
   const {
     level, imageUrl, imageSeed, tray, board, selectedTrayId,
-    hintsLeft, hintCell,
-    startPuzzle, newGame, selectTrayPiece, placeOnBoardById, returnToTray,
+    hintsLeft, hintCell, flashCorrect,
+    startPuzzle, newGame, selectTrayPiece, placeOnBoard, placeOnBoardById, returnToTray,
     useHint, tick, seconds, isComplete,
   } = useJigsawStore();
 
@@ -186,25 +193,25 @@ export default function JigsawPage() {
   if (screen === 'levels') {
     return (
       <div style={{
-        minHeight: '100vh', backgroundColor: '#0A0D14',
+        minHeight: '100vh', background: PAGE_BG,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 'clamp(24px,5vh,48px) 16px', position: 'relative',
       }}>
+        <div className="dot-grid" style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none' }} />
         <div style={{
-          position: 'absolute', pointerEvents: 'none',
-          top: 0, left: '50%', transform: 'translateX(-50%)',
-          width: 500, height: 320,
-          background: 'radial-gradient(ellipse, rgba(251,191,36,0.07) 0%, transparent 70%)',
-          filter: 'blur(60px)',
+          position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
+          width: 600, height: 400, borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(245,158,11,0.1) 0%, transparent 65%)',
+          pointerEvents: 'none',
         }} />
         <div style={{ width: '100%', maxWidth: 480, position: 'relative', zIndex: 10 }}>
           <button
             onClick={() => navigate('/')}
             onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = '#374151')}
+            onMouseLeave={e => (e.currentTarget.style.color = T3)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, color: '#374151',
-              fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 6, color: T3,
+              fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
               background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 28px', transition: 'color 0.15s',
             }}
           >← All Games</button>
@@ -212,21 +219,21 @@ export default function JigsawPage() {
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 72, height: 72, borderRadius: 20,
+              width: 64, height: 64, borderRadius: 18,
               background: ACCENT_DIM, border: `1px solid ${ACCENT_BORDER}`,
-              fontSize: 34, marginBottom: 16, boxShadow: '0 0 40px rgba(251,191,36,0.08)',
+              fontSize: 28, marginBottom: 16,
             }}>🧩</div>
-            <h1 className="gradient-text-amber" style={{ fontSize: '2.6rem', lineHeight: 1.1, marginBottom: 8, fontWeight: 900 }}>
+            <h1 style={{ fontSize: '2.4rem', lineHeight: 1.1, marginBottom: 8, fontWeight: 900, color: T1 }}>
               Jigsaw
             </h1>
-            <p style={{ color: '#6B7280', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            <p style={{ color: T2, fontSize: '0.875rem', lineHeight: 1.65 }}>
               Piece together beautiful photographs
             </p>
           </div>
 
           {/* Photo picker — scrollable row of all images */}
           <div style={{ marginBottom: 22 }}>
-            <p style={{ fontSize: '0.63rem', fontWeight: 800, color: '#374151', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10 }}>
+            <p style={{ fontSize: '0.62rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
               Choose Photo ({IMAGE_COUNT} available)
             </p>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'thin' }}>
@@ -237,7 +244,7 @@ export default function JigsawPage() {
                   style={{
                     flexShrink: 0, padding: 0, border: 'none', borderRadius: 8,
                     overflow: 'hidden', cursor: 'pointer',
-                    outline: previewSeed === i ? `2.5px solid ${ACCENT}` : '2px solid rgba(255,255,255,0.08)',
+                    outline: previewSeed === i ? `2.5px solid ${ACCENT}` : `2px solid ${BDR}`,
                     outlineOffset: 2, transition: 'outline 0.15s',
                   }}
                 >
@@ -247,7 +254,7 @@ export default function JigsawPage() {
             </div>
           </div>
 
-          <p style={{ fontSize: '0.63rem', fontWeight: 800, color: '#374151', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12 }}>
+          <p style={{ fontSize: '0.62rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
             Choose Difficulty
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -256,34 +263,36 @@ export default function JigsawPage() {
                 key={lvl.id}
                 onClick={() => { startPuzzle(lvl.id, previewSeed); setScreen('game'); }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(251,191,36,0.4)';
+                  (e.currentTarget as HTMLElement).style.background = '#1F2537';
+                  (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}30`;
                   (e.currentTarget as HTMLElement).style.transform = 'translateX(4px)';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
+                  (e.currentTarget as HTMLElement).style.background = '#1A1F2E';
+                  (e.currentTarget as HTMLElement).style.borderColor = BDR;
                   (e.currentTarget as HTMLElement).style.transform = 'translateX(0)';
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 18px',
-                  background: 'linear-gradient(145deg, #141B2D 0%, #111927 100%)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 14, cursor: 'pointer', textAlign: 'left',
-                  transition: 'all 0.2s cubic-bezier(.34,1.56,.64,1)',
+                  padding: '12px 16px',
+                  background: '#1A1F2E',
+                  border: `1px solid ${BDR}`,
+                  borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                  transition: 'all 0.18s ease',
                 }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                     <span style={{
-                      fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.07em',
+                      fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.07em',
                       padding: '2px 8px', borderRadius: 100,
                       background: ACCENT_DIM, color: ACCENT, border: `1px solid ${ACCENT_BORDER}`, textTransform: 'uppercase',
                     }}>{lvl.label}</span>
-                    <span style={{ fontSize: '0.73rem', color: '#484F58' }}>{lvl.gridSize}×{lvl.gridSize} = {lvl.gridSize * lvl.gridSize} pieces</span>
+                    <span style={{ fontSize: '0.72rem', color: T3 }}>{lvl.gridSize}×{lvl.gridSize} = {lvl.gridSize * lvl.gridSize} pieces</span>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: '#8B949E' }}>{lvl.description}</span>
+                  <span style={{ fontSize: '0.8rem', color: T2 }}>{lvl.description}</span>
                 </div>
-                <span style={{ color: ACCENT, fontSize: '1.1rem', fontWeight: 300, marginLeft: 14 }}>›</span>
+                <span style={{ color: ACCENT, fontSize: '1rem', fontWeight: 700, marginLeft: 12 }}>›</span>
               </button>
             ))}
           </div>
@@ -294,20 +303,20 @@ export default function JigsawPage() {
 
   // ─── Game screen ──────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0A0D14', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: PAGE_BG, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 14px',
-        background: 'rgba(17,25,39,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 20,
+        padding: '10px 16px',
+        background: 'rgba(11,15,26,0.9)', borderBottom: `1px solid ${BDR}`,
+        backdropFilter: 'blur(16px)', position: 'sticky', top: 0, zIndex: 20,
         flexWrap: 'wrap', gap: 8,
       }}>
         <button
           onClick={() => setScreen('levels')}
           onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-          onMouseLeave={e => (e.currentTarget.style.color = '#484F58')}
-          style={{ color: '#484F58', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
+          onMouseLeave={e => (e.currentTarget.style.color = T3)}
+          style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
         >← Levels</button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -321,7 +330,7 @@ export default function JigsawPage() {
               color: ACCENT, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'border-color 0.15s',
             }}
           >👁 Preview</button>
-          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#F0F6FC', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: T1, fontVariantNumeric: 'tabular-nums' }}>
             {formatTime(seconds)}
           </span>
         </div>
@@ -332,16 +341,17 @@ export default function JigsawPage() {
             disabled={hintsLeft === 0}
             style={{
               display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20,
-              background: ACCENT_DIM, border: `1px solid ${ACCENT_BORDER}`,
-              color: hintsLeft > 0 ? ACCENT : '#374151',
+              background: hintsLeft > 0 ? ACCENT_DIM : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${hintsLeft > 0 ? ACCENT_BORDER : BDR}`,
+              color: hintsLeft > 0 ? ACCENT : T3,
               fontSize: '0.7rem', fontWeight: 700, cursor: hintsLeft > 0 ? 'pointer' : 'not-allowed',
             }}
           >💡 {hintsLeft}</button>
           <button
             onClick={() => newGame(level.id)}
             onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = '#6B7280')}
-            style={{ color: '#6B7280', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
+            onMouseLeave={e => (e.currentTarget.style.color = T3)}
+            style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
           >New</button>
         </div>
       </div>
@@ -356,30 +366,36 @@ export default function JigsawPage() {
         {/* Board */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <p style={{ fontSize: '0.6rem', fontWeight: 800, color: '#374151', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Board</p>
-            <p style={{ fontSize: '0.65rem', color: '#484F58', fontWeight: 600 }}>
+            <p style={{ fontSize: '0.58rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Board</p>
+            <p style={{ fontSize: '0.62rem', color: T2, fontWeight: 600 }}>
               {placedCount}/{level.gridSize * level.gridSize} · tap placed piece to return
             </p>
           </div>
           <div style={{
             position: 'relative', width: boardPx, height: boardPx,
-            background: '#0E1520', borderRadius: 12,
-            border: '1px solid rgba(255,255,255,0.07)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            background: BOARD_BG, borderRadius: 12,
+            border: `1px solid ${BDR}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
           }}>
             {Array.from({ length: level.gridSize }, (_, row) =>
               Array.from({ length: level.gridSize }, (_, col) => {
                 const cell = board[row]?.[col];
                 const isHintSlot = hintCell?.row === row && hintCell?.col === col;
                 const isDropHere = dropTarget?.row === row && dropTarget?.col === col;
+                const isFlashing = cell ? flashCorrect.includes(cell.pieceId) : false;
                 return (
                   <div
                     key={`${row}-${col}`}
                     data-row={row}
                     data-col={col}
+                    className={isFlashing ? 'piece-correct-flash' : undefined}
                     onMouseEnter={() => drag && setDropTarget({ row, col })}
                     onMouseLeave={() => drag && setDropTarget(null)}
-                    onClick={() => !drag && cell && returnToTray(row, col)}
+                    onClick={() => {
+                      if (drag) return;
+                      if (selectedTrayId !== null) placeOnBoard(row, col);
+                      else if (cell) returnToTray(row, col);
+                    }}
                     style={{
                       position: 'absolute',
                       left: col * cellSize, top: row * cellSize,
@@ -387,13 +403,13 @@ export default function JigsawPage() {
                       border: isHintSlot
                         ? '2px solid #FBBF24'
                         : isDropHere
-                        ? '2px dashed rgba(251,191,36,0.7)'
+                        ? '2px dashed rgba(124,58,237,0.6)'
                         : cell?.correct
-                        ? '1px solid rgba(52,211,153,0.25)'
-                        : '1px solid rgba(255,255,255,0.04)',
+                        ? '1px solid rgba(52,211,153,0.3)'
+                        : '1px solid rgba(0,0,0,0.06)',
                       borderRadius: 2,
-                      backgroundColor: isHintSlot ? 'rgba(251,191,36,0.08)' : cell ? 'transparent' : 'rgba(255,255,255,0.01)',
-                      boxShadow: isHintSlot ? '0 0 14px rgba(251,191,36,0.4)' : 'none',
+                      backgroundColor: isHintSlot ? 'rgba(251,191,36,0.12)' : cell ? 'transparent' : 'rgba(255,255,255,0.4)',
+                      boxShadow: isHintSlot ? '0 0 14px rgba(251,191,36,0.5)' : 'none',
                       transition: 'border-color 0.12s',
                       cursor: cell ? 'pointer' : 'default',
                       overflow: 'visible', zIndex: cell ? 1 : 0,
@@ -420,13 +436,13 @@ export default function JigsawPage() {
 
         {/* Tray */}
         <div style={{ maxWidth: isMobile ? boardPx : 300, width: '100%' }}>
-          <p style={{ fontSize: '0.6rem', fontWeight: 800, color: '#374151', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>
+          <p style={{ fontSize: '0.58rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>
             Pieces ({tray.length}) · drag to board
           </p>
           <div style={{
             display: 'flex', flexWrap: 'wrap', gap: 6, alignContent: 'flex-start',
-            background: '#111927', padding: 10, borderRadius: 14,
-            border: '1px solid rgba(255,255,255,0.07)',
+            background: TRAY_BG, padding: 10, borderRadius: 14,
+            border: `1px solid ${BDR}`,
             minHeight: 80, maxHeight: isMobile ? 220 : 460, overflowY: 'auto',
           }}>
             {tray.map(id => {
@@ -458,13 +474,13 @@ export default function JigsawPage() {
               );
             })}
             {tray.length === 0 && (
-              <p style={{ color: '#374151', fontSize: '0.8rem', width: '100%', textAlign: 'center', padding: '16px 0' }}>
+              <p style={{ color: ACCENT, fontSize: '0.8rem', width: '100%', textAlign: 'center', padding: '16px 0' }}>
                 All pieces placed!
               </p>
             )}
           </div>
           {selectedTrayId !== null && !drag && (
-            <p style={{ fontSize: '0.72rem', color: ACCENT, textAlign: 'center', marginTop: 8, fontWeight: 600 }}>
+            <p style={{ fontSize: '0.7rem', color: ACCENT, textAlign: 'center', marginTop: 8, fontWeight: 600 }}>
               Click a board slot to place
             </p>
           )}
@@ -533,28 +549,29 @@ export default function JigsawPage() {
       {isComplete && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>
           <div style={{
-            background: 'linear-gradient(145deg, #1E1A10 0%, #111927 100%)',
-            border: `1px solid ${ACCENT_BORDER}`,
+            background: '#1A1F2E',
+            border: `1px solid ${BDR}`,
             borderRadius: 24, padding: '32px 28px',
             maxWidth: 320, width: '100%', textAlign: 'center',
             animation: 'fadeUp 0.3s cubic-bezier(.34,1.56,.64,1)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
           }}>
             <div style={{ fontSize: 46, marginBottom: 10 }}>🧩</div>
-            <h2 style={{ fontSize: '1.7rem', fontWeight: 900, color: '#F0F6FC', marginBottom: 4 }}>Complete!</h2>
-            <p style={{ color: '#6B7280', fontSize: '0.875rem', marginBottom: 16 }}>{level.label} · {formatTime(seconds)}</p>
-            <img src={imageUrl} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 18, border: `1px solid ${ACCENT_BORDER}` }} />
+            <h2 style={{ fontSize: '1.65rem', fontWeight: 900, color: T1, marginBottom: 4 }}>Complete!</h2>
+            <p style={{ color: T2, fontSize: '0.875rem', marginBottom: 16 }}>{level.label} · {formatTime(seconds)}</p>
+            <img src={imageUrl} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 18, border: `1px solid ${BDR}` }} />
             <button
               onClick={() => newGame(level.id)}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(251,191,36,0.2)')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = ACCENT_DIM)}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#D97706')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = ACCENT)}
               style={{
                 width: '100%', padding: '12px 0',
-                background: ACCENT_DIM, border: `1px solid rgba(251,191,36,0.35)`,
-                borderRadius: 12, color: ACCENT, fontSize: '0.95rem', fontWeight: 800,
+                background: ACCENT, border: 'none',
+                borderRadius: 10, color: '#fff', fontSize: '0.92rem', fontWeight: 700,
                 cursor: 'pointer', marginBottom: 8, transition: 'background 0.15s',
                 fontFamily: "'DM Sans', sans-serif",
               }}
@@ -562,10 +579,10 @@ export default function JigsawPage() {
             <button
               onClick={() => startPuzzle(level.id, imageSeed)}
               onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-              onMouseLeave={e => (e.currentTarget.style.color = '#8B949E')}
+              onMouseLeave={e => (e.currentTarget.style.color = T3)}
               style={{
                 width: '100%', padding: '8px 0', background: 'none', border: 'none',
-                color: '#8B949E', fontSize: '0.82rem', fontWeight: 600,
+                color: T3, fontSize: '0.8rem', fontWeight: 600,
                 cursor: 'pointer', transition: 'color 0.15s', fontFamily: "'DM Sans', sans-serif",
                 marginBottom: 4,
               }}
@@ -573,10 +590,10 @@ export default function JigsawPage() {
             <button
               onClick={() => setScreen('levels')}
               onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-              onMouseLeave={e => (e.currentTarget.style.color = '#484F58')}
+              onMouseLeave={e => (e.currentTarget.style.color = T3)}
               style={{
                 width: '100%', padding: '8px 0', background: 'none', border: 'none',
-                color: '#484F58', fontSize: '0.82rem', fontWeight: 600,
+                color: T3, fontSize: '0.8rem', fontWeight: 600,
                 cursor: 'pointer', transition: 'color 0.15s', fontFamily: "'DM Sans', sans-serif",
               }}
             >Change Difficulty</button>
