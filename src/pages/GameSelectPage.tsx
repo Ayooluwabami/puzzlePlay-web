@@ -1,12 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 
-// Design tokens
-const BG    = '#0B0F1A';
-const CARD  = '#1A1F2E';
-const BDR   = 'rgba(255,255,255,0.08)';
-const T1    = '#F1F5F9';
-const T2    = '#94A3B8';
-const T3    = '#475569';
+// Warm artistic palette: cream · amber · mint · blue
+const BG_GRAD = 'linear-gradient(155deg, #FDF3E7 0%, #FAFAF7 45%, #EAF4F2 100%)';
+const CARD    = 'rgba(255,255,255,0.78)';
+const BDR     = 'rgba(242,182,109,0.22)';
+const T1      = '#1A1A2E';
+const T2      = 'rgba(26,26,46,0.68)';
+const T3      = 'rgba(26,26,46,0.38)';
+const AMBER   = '#F2B66D';
+const BLUE    = '#60A5FA';
 
 const GAMES = [
   {
@@ -15,10 +17,10 @@ const GAMES = [
     name: 'Sudoku',
     tagline: 'Fill the grid. Train your mind.',
     levels: '6 levels',
-    accent: '#3B82F6',
-    accentGlow: 'rgba(59,130,246,0.15)',
-    accentSubtle: 'rgba(59,130,246,0.1)',
-    textClass: 'gradient-text-blue',
+    accent: '#60A5FA',
+    accentGlow: 'rgba(96,165,250,0.14)',
+    accentSubtle: 'rgba(96,165,250,0.08)',
+    textColor: '#2563EB',
   },
   {
     path: '/wordsearch',
@@ -26,10 +28,10 @@ const GAMES = [
     name: 'Word Search',
     tagline: 'Hunt every hidden word.',
     levels: '5 levels',
-    accent: '#10B981',
-    accentGlow: 'rgba(16,185,129,0.15)',
-    accentSubtle: 'rgba(16,185,129,0.1)',
-    textClass: 'gradient-text-green',
+    accent: '#0D9488',
+    accentGlow: 'rgba(13,148,136,0.14)',
+    accentSubtle: 'rgba(13,148,136,0.08)',
+    textColor: '#0F766E',
   },
   {
     path: '/jigsaw',
@@ -37,10 +39,10 @@ const GAMES = [
     name: 'Jigsaw',
     tagline: 'Piece together the picture.',
     levels: '9 levels',
-    accent: '#F59E0B',
-    accentGlow: 'rgba(245,158,11,0.15)',
-    accentSubtle: 'rgba(245,158,11,0.1)',
-    textClass: 'gradient-text-amber',
+    accent: '#A78BFA',
+    accentGlow: 'rgba(167,139,250,0.18)',
+    accentSubtle: 'rgba(167,139,250,0.08)',
+    textColor: '#6D28D9',
   },
 ] as const;
 
@@ -50,7 +52,7 @@ export default function GameSelectPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: BG,
+      background: BG_GRAD,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -59,41 +61,46 @@ export default function GameSelectPage() {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Dot grid */}
-      <div className="dot-grid" style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none' }} />
-
-      {/* Ambient glow */}
+      {/* Dot grid — dark dots for light bg */}
       <div style={{
-        position: 'absolute', top: '-15%', left: '50%', transform: 'translateX(-50%)',
-        width: 700, height: 500, borderRadius: '50%',
-        background: 'radial-gradient(ellipse, rgba(59,130,246,0.1) 0%, transparent 65%)',
+        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.5,
+        backgroundImage: 'radial-gradient(circle, rgba(26,26,46,0.12) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+      }} />
+
+      {/* Ambient orbs */}
+      <div style={{
+        position: 'absolute', top: '-10%', right: '-5%',
+        width: 520, height: 520, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(242,182,109,0.22) 0%, transparent 65%)',
         pointerEvents: 'none',
       }} />
       <div style={{
         position: 'absolute', bottom: '-10%', left: '-5%',
-        width: 400, height: 400, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(16,185,129,0.07) 0%, transparent 65%)',
+        width: 460, height: 460, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(96,165,250,0.18) 0%, transparent 65%)',
         pointerEvents: 'none',
       }} />
       <div style={{
-        position: 'absolute', top: '30%', right: '-5%',
-        width: 350, height: 350, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 65%)',
+        position: 'absolute', top: '40%', left: '10%',
+        width: 320, height: 320, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(13,148,136,0.10) 0%, transparent 65%)',
         pointerEvents: 'none',
       }} />
 
       {/* Hero */}
-      <div style={{ textAlign: 'center', marginBottom: 56, position: 'relative', zIndex: 10 }}>
+      <div style={{ textAlign: 'center', marginBottom: 52, position: 'relative', zIndex: 10 }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           padding: '5px 16px', borderRadius: 9999,
           fontSize: '0.7rem', fontWeight: 700, marginBottom: 28,
-          background: 'rgba(59,130,246,0.1)',
-          border: '1px solid rgba(59,130,246,0.2)',
-          color: '#60A5FA',
+          background: 'rgba(242,182,109,0.15)',
+          border: `1px solid rgba(242,182,109,0.35)`,
+          color: '#B45309',
           letterSpacing: '0.1em',
+          backdropFilter: 'blur(8px)',
         }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', display: 'inline-block' }} />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: AMBER, display: 'inline-block' }} />
           THREE GAMES · ZERO ADS · PURE FUN
         </div>
 
@@ -102,7 +109,12 @@ export default function GameSelectPage() {
           lineHeight: 1.0, fontWeight: 900,
           letterSpacing: '-0.04em', marginBottom: 20, color: T1,
         }}>
-          Puzzle<span className="gradient-text"> Play</span>
+          Puzzle
+          <span style={{
+            background: `linear-gradient(135deg, ${AMBER} 0%, ${BLUE} 100%)`,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}> Play</span>
         </h1>
 
         <p style={{ color: T2, fontSize: '1rem', maxWidth: 360, margin: '0 auto', lineHeight: 1.75 }}>
@@ -133,13 +145,15 @@ export default function GameSelectPage() {
 function GameCard({ game, onClick }: { game: typeof GAMES[number]; onClick: () => void }) {
   const handleEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.transform = 'translateY(-6px)';
-    e.currentTarget.style.boxShadow = `0 20px 56px ${game.accentGlow}, 0 0 0 1px ${game.accent}40`;
-    e.currentTarget.style.borderColor = `${game.accent}40`;
+    e.currentTarget.style.boxShadow = `0 20px 56px ${game.accentGlow}, 0 2px 8px rgba(0,0,0,0.08)`;
+    e.currentTarget.style.borderColor = `${game.accent}55`;
+    e.currentTarget.style.background = 'rgba(255,255,255,0.95)';
   };
   const handleLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.transform = 'translateY(0)';
-    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+    e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.07)';
     e.currentTarget.style.borderColor = BDR;
+    e.currentTarget.style.background = CARD;
   };
 
   return (
@@ -154,21 +168,24 @@ function GameCard({ game, onClick }: { game: typeof GAMES[number]; onClick: () =
         borderRadius: 20,
         padding: '28px 26px 24px',
         cursor: 'pointer',
-        transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, border-color 0.25s',
+        transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, border-color 0.25s, background 0.2s',
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
       }}
     >
       {/* Top accent line */}
       <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
         background: `linear-gradient(90deg, ${game.accent}, ${game.accent}00)`,
+        borderRadius: '20px 20px 0 0',
       }} />
 
-      {/* Subtle corner glow */}
+      {/* Corner glow */}
       <div style={{
         position: 'absolute', top: 0, left: 0, width: 200, height: 200,
         background: `radial-gradient(circle at 0% 0%, ${game.accentSubtle}, transparent 70%)`,
@@ -177,16 +194,19 @@ function GameCard({ game, onClick }: { game: typeof GAMES[number]; onClick: () =
 
       {/* Emoji icon */}
       <div style={{
-        fontSize: 28, marginBottom: 20, marginTop: 6,
+        fontSize: 26, marginBottom: 20, marginTop: 6,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 56, height: 56, borderRadius: 16,
+        width: 54, height: 54, borderRadius: 16,
         background: game.accentSubtle,
-        border: `1px solid ${game.accent}30`,
+        border: `1.5px solid ${game.accent}35`,
       }}>
         {game.emoji}
       </div>
 
-      <h2 className={game.textClass} style={{ fontSize: '1.5rem', lineHeight: 1.15, marginBottom: 8, fontWeight: 800 }}>
+      <h2 style={{
+        fontSize: '1.5rem', lineHeight: 1.15, marginBottom: 8, fontWeight: 800,
+        color: game.textColor,
+      }}>
         {game.name}
       </h2>
 
@@ -199,8 +219,8 @@ function GameCard({ game, onClick }: { game: typeof GAMES[number]; onClick: () =
           fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
           padding: '3px 10px', borderRadius: 100,
           background: game.accentSubtle,
-          color: game.accent,
-          border: `1px solid ${game.accent}25`,
+          color: game.textColor,
+          border: `1px solid ${game.accent}35`,
           textTransform: 'uppercase',
         }}>
           {game.levels}

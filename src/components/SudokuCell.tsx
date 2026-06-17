@@ -33,7 +33,6 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
   const isSameNumber = !isSelected && selValue !== null && value === selValue && value !== null;
   const hasNotes     = cellNotes.slice(0, size).some(Boolean);
 
-  // Green streak flash
   const shouldFlash = flashingLines.rows.includes(row) || flashingLines.cols.includes(col);
   const [showFlash, setShowFlash] = useState(false);
   const flashRef = useRef<ReturnType<typeof setTimeout>>();
@@ -50,16 +49,17 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
   const borderRight  = (col + 1) % boxCols === 0 && col !== size - 1;
   const borderBottom = (row + 1) % boxRows === 0 && row !== size - 1;
 
-  // Dark background states
+  // Cell background on navy (#1E3A8A) background
   const bgColor = isSelected
-    ? 'rgba(79,142,247,0.22)'
+    ? 'rgba(147,197,253,0.28)'
     : isSameNumber
-    ? 'rgba(79,142,247,0.12)'
+    ? 'rgba(147,197,253,0.14)'
     : isHighlighted
-    ? 'rgba(255,255,255,0.03)'
+    ? 'rgba(255,255,255,0.06)'
     : 'transparent';
 
-  const textColor = isPreFilled ? '#E2E8F0' : '#60A5FA';
+  // Pre-filled: white; user-entered: light blue
+  const textColor = isPreFilled ? '#FFFFFF' : '#93C5FD';
   const fontSize  = Math.round(cellPx * 0.52);
   const noteFontSz = Math.round(cellPx * 0.19);
 
@@ -69,17 +69,16 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
       style={{
         width: cellPx, height: cellPx, minWidth: cellPx,
         backgroundColor: bgColor,
-        borderRight:  borderRight  ? '1.5px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.05)',
-        borderBottom: borderBottom ? '1.5px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.05)',
+        borderRight:  borderRight  ? '1.5px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.08)',
+        borderBottom: borderBottom ? '1.5px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.08)',
         position: 'relative',
         cursor: 'pointer',
         userSelect: 'none',
         transition: 'background-color 0.1s ease',
-        outline: isSelected ? '2px solid rgba(79,142,247,0.6)' : 'none',
+        outline: isSelected ? '2px solid rgba(147,197,253,0.7)' : 'none',
         outlineOffset: '-2px',
       }}
     >
-      {/* Flash overlay */}
       {showFlash && (
         <div style={{
           position: 'absolute', inset: 0,
@@ -94,7 +93,7 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize, fontWeight: isPreFilled ? 700 : 600,
           color: textColor, lineHeight: 1, zIndex: 2,
-          textShadow: isPreFilled ? 'none' : '0 0 12px rgba(96,165,250,0.4)',
+          textShadow: isPreFilled ? 'none' : '0 0 12px rgba(147,197,253,0.4)',
         }}>
           {value}
         </span>
@@ -110,7 +109,7 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
             <span key={n} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: noteFontSz, fontWeight: 600,
-              color: '#4B5563', lineHeight: 1,
+              color: 'rgba(147,197,253,0.55)', lineHeight: 1,
             }}>
               {cellNotes[n - 1] ? n : ''}
             </span>

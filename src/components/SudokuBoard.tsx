@@ -22,12 +22,13 @@ export default function SudokuBoard() {
   return (
     <div style={{
       display: 'inline-block',
-      border: '1.5px solid rgba(255,255,255,0.1)',
-      background: '#0E1520',
-      borderRadius: 12,
+      border: '1px solid rgba(255,255,255,0.15)',
+      background: 'rgba(255,255,255,0.06)',
+      borderRadius: 14,
       overflow: 'hidden',
       width: boardPx,
-      boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 24px 64px rgba(0,0,0,0.5)',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
+      backdropFilter: 'blur(8px)',
     }}>
       <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: boardPx }}>
         <tbody>

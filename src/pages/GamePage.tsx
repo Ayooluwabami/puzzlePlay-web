@@ -59,40 +59,43 @@ export default function GamePage() {
 
   const prevBest = bestTimes[difficulty];
 
+  const BLUE = '#93C5FD';
+  const T3   = 'rgba(255,255,255,0.38)';
+  const T2   = 'rgba(255,255,255,0.65)';
+  const BDR  = 'rgba(255,255,255,0.14)';
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0A0D14', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100dvh', background: '#1E3A8A', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <GameHeader />
 
       <main style={{
         flex: 1, display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
-        gap: 48, padding: '32px 16px',
-        flexWrap: 'wrap',
+        gap: 32, padding: '20px 16px',
+        flexWrap: 'wrap', overflow: 'hidden',
       }}>
         <div style={{ flexShrink: 0 }}>
           <SudokuBoard />
         </div>
 
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 16,
+          display: 'flex', flexDirection: 'column', gap: 14,
           width: '100%', maxWidth: 340,
         }}>
           <ActionButtons />
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
           <NumberPad />
           <button
             onClick={() => navigate('/sudoku')}
-            onMouseEnter={e => (e.currentTarget.style.color = '#4F8EF7')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#374151')}
+            onMouseEnter={e => (e.currentTarget.style.color = BLUE)}
+            onMouseLeave={e => (e.currentTarget.style.color = T3)}
             style={{
               marginTop: 4, fontSize: '0.75rem', fontWeight: 700,
-              color: '#374151', letterSpacing: '0.06em', textTransform: 'uppercase',
+              color: T3, letterSpacing: '0.06em', textTransform: 'uppercase',
               background: 'none', border: 'none', cursor: 'pointer',
               textAlign: 'center', transition: 'color 0.15s',
             }}
-          >
-            ← Sudoku Levels
-          </button>
+          >← Sudoku Levels</button>
         </div>
       </main>
 
@@ -100,85 +103,66 @@ export default function GamePage() {
       {isComplete && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>
           <div style={{
-            background: 'linear-gradient(145deg, #1A2540 0%, #141B2D 100%)',
-            border: '1px solid rgba(79,142,247,0.25)',
+            background: 'rgba(30,58,138,0.95)',
+            border: `1px solid ${BDR}`,
             borderRadius: 28, padding: 40,
             maxWidth: 380, width: '100%', textAlign: 'center',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
             animation: 'fadeUp 0.3s cubic-bezier(.34,1.56,.64,1)',
+            backdropFilter: 'blur(20px)',
           }}>
-            <div style={{ fontSize: 52, marginBottom: 12 }}>
-              {isNewRecord ? '🏆' : '🎉'}
-            </div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#F0F6FC', marginBottom: 6 }}>
-              Puzzle Solved!
-            </h2>
-            <p style={{ color: '#6B7280', fontSize: '0.9rem', marginBottom: 4 }}>
-              {label} · {formatTime(seconds)}
-            </p>
+            <div style={{ fontSize: 52, marginBottom: 12 }}>{isNewRecord ? '🏆' : '🎉'}</div>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', marginBottom: 6 }}>Puzzle Solved!</h2>
+            <p style={{ color: T2, fontSize: '0.9rem', marginBottom: 4 }}>{label} · {formatTime(seconds)}</p>
             {mistakes > 0 && (
-              <p style={{ color: '#484F58', fontSize: '0.78rem', marginBottom: 4 }}>
+              <p style={{ color: T3, fontSize: '0.78rem', marginBottom: 4 }}>
                 {mistakes} mistake{mistakes !== 1 ? 's' : ''}
               </p>
             )}
-
             <div style={{ margin: '16px 0 28px' }}>
               {isNewRecord ? (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '6px 16px', borderRadius: 100,
-                  background: 'rgba(52,211,153,0.12)',
-                  border: '1px solid rgba(52,211,153,0.3)',
-                  color: '#34D399', fontSize: '0.85rem', fontWeight: 700,
-                }}>
-                  ✦ New Record!
-                </div>
+                  background: 'rgba(110,231,183,0.15)',
+                  border: '1px solid rgba(110,231,183,0.35)',
+                  color: '#6EE7B7', fontSize: '0.85rem', fontWeight: 700,
+                }}>✦ New Record!</div>
               ) : prevBest !== undefined ? (
-                <p style={{ color: '#484F58', fontSize: '0.8rem' }}>
-                  Best: {formatTime(prevBest)}
-                </p>
+                <p style={{ color: T3, fontSize: '0.8rem' }}>Best: {formatTime(prevBest)}</p>
               ) : null}
             </div>
-
             <button
               onClick={() => startGame(difficulty)}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.25)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(79,142,247,0.15)';
-              }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(147,197,253,0.22)')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(147,197,253,0.12)')}
               style={{
                 width: '100%', padding: '14px 0',
-                background: 'rgba(79,142,247,0.15)',
-                border: '1px solid rgba(79,142,247,0.35)',
-                borderRadius: 14, color: '#60A5FA',
+                background: 'rgba(147,197,253,0.12)',
+                border: '1px solid rgba(147,197,253,0.3)',
+                borderRadius: 14, color: BLUE,
                 fontSize: '1rem', fontWeight: 800,
                 cursor: 'pointer', marginBottom: 10,
                 transition: 'background 0.15s',
                 fontFamily: "'DM Sans', sans-serif",
               }}
-            >
-              New Game
-            </button>
+            >New Game</button>
             <button
               onClick={() => navigate('/sudoku')}
-              onMouseEnter={e => (e.currentTarget.style.color = '#4F8EF7')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#484F58')}
+              onMouseEnter={e => (e.currentTarget.style.color = BLUE)}
+              onMouseLeave={e => (e.currentTarget.style.color = T3)}
               style={{
                 width: '100%', padding: '8px 0',
                 background: 'none', border: 'none',
-                color: '#484F58', fontSize: '0.85rem', fontWeight: 600,
+                color: T3, fontSize: '0.85rem', fontWeight: 600,
                 cursor: 'pointer', transition: 'color 0.15s',
                 fontFamily: "'DM Sans', sans-serif",
               }}
-            >
-              Change Difficulty
-            </button>
+            >Change Difficulty</button>
           </div>
         </div>
       )}

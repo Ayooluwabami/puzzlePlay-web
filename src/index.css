@@ -7,15 +7,15 @@
 }
 
 @keyframes flashGreen {
-  0%, 40% { background-color: rgba(52, 211, 153, 0.55); }
+  0%, 40% { background-color: rgba(52, 211, 153, 0.5); }
   100%     { background-color: transparent; }
 }
 
 @keyframes correctPieceFlash {
-  0%   { box-shadow: 0 0 0 0 rgba(74,222,128,0); background: transparent; }
-  25%  { box-shadow: 0 0 0 10px rgba(74,222,128,0.8); background: rgba(74,222,128,0.25); }
-  60%  { box-shadow: 0 0 0 18px rgba(74,222,128,0.4); background: rgba(74,222,128,0.15); }
-  100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); background: transparent; }
+  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0); background: transparent; }
+  25%  { box-shadow: 0 0 0 10px rgba(52,211,153,0.75); background: rgba(52,211,153,0.22); }
+  60%  { box-shadow: 0 0 0 18px rgba(52,211,153,0.35); background: rgba(52,211,153,0.1); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); background: transparent; }
 }
 .piece-correct-flash {
   animation: correctPieceFlash 0.75s ease-out forwards;
@@ -25,11 +25,6 @@
 @keyframes glowPulse {
   0%, 100% { opacity: 0.35; }
   50%       { opacity: 0.7; }
-}
-
-@keyframes floatY {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-5px); }
 }
 
 /* ─── Base ───────────────────────────────────────────────────────── */
@@ -44,40 +39,40 @@ html, body, #root {
 
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0B0F1A;
-  color: #F1F5F9;
+  background: #0C4A6E;
+  color: #FFFFFF;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Dot grid pattern ───────────────────────────────────────────── */
+/* ─── Dot grid — white dots on coloured backgrounds ─────────────── */
 .dot-grid {
-  background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
 /* ─── Gradient text ──────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(130deg, #3B82F6, #60A5FA, #38BDF8, #3B82F6);
+  background: linear-gradient(130deg, #7DD3FC, #34D399, #FCD34D, #7DD3FC);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .gradient-text-blue {
-  background: linear-gradient(135deg, #60A5FA 0%, #38BDF8 100%);
+  background: linear-gradient(135deg, #93C5FD 0%, #7DD3FC 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .gradient-text-green {
-  background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+  background: linear-gradient(135deg, #6EE7B7 0%, #34D399 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .gradient-text-amber {
-  background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%);
+  background: linear-gradient(135deg, #FCD34D 0%, #FBBF24 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -85,5 +80,5 @@ body {
 
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
