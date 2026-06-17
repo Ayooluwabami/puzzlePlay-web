@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 
 // Design tokens
 const BG    = '#0B0F1A';
-// const SUR   = '#131720';
 const CARD  = '#1A1F2E';
 const BDR   = 'rgba(255,255,255,0.08)';
 const T1    = '#F1F5F9';
