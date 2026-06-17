@@ -57,7 +57,13 @@ export const WS_LEVELS: WSLevel[] = [
   },
 ];
 
-export function generateWordSearch(level: WSLevel): { grid: string[][], placed: PlacedWord[] } {
+function makeLcg(seed: number) {
+  let s = (seed ^ 0xDEADBEEF) >>> 0;
+  return () => { s = Math.imul(s, 1664525) + 1013904223 >>> 0; return s / 4294967296; };
+}
+
+export function generateWordSearch(level: WSLevel, seed: number): { grid: string[][], placed: PlacedWord[] } {
+  const rng = makeLcg(seed);
   const { size, words } = level;
   const grid: string[][] = Array.from({ length: size }, () => Array(size).fill(''));
   const placed: PlacedWord[] = [];
@@ -67,9 +73,9 @@ export function generateWordSearch(level: WSLevel): { grid: string[][], placed: 
   for (const word of sorted) {
     let ok = false;
     for (let attempt = 0; attempt < 300 && !ok; attempt++) {
-      const [dr, dc] = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-      const row = Math.floor(Math.random() * size);
-      const col = Math.floor(Math.random() * size);
+      const [dr, dc] = DIRECTIONS[Math.floor(rng() * DIRECTIONS.length)];
+      const row = Math.floor(rng() * size);
+      const col = Math.floor(rng() * size);
       const endRow = row + dr * (word.length - 1);
       const endCol = col + dc * (word.length - 1);
       if (endRow < 0 || endRow >= size || endCol < 0 || endCol >= size) continue;
@@ -92,7 +98,7 @@ export function generateWordSearch(level: WSLevel): { grid: string[][], placed: 
   const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      if (grid[r][c] === '') grid[r][c] = alpha[Math.floor(Math.random() * 26)];
+      if (grid[r][c] === '') grid[r][c] = alpha[Math.floor(rng() * 26)];
     }
   }
 

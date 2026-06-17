@@ -44,7 +44,6 @@ export default function GameSelectPage() {
 
   return (
     <div
-      className="bg-grid"
       style={{
         minHeight: '100vh',
         backgroundColor: '#0A0D14',
@@ -52,7 +51,7 @@ export default function GameSelectPage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '64px 16px',
+        padding: 'clamp(32px,6vh,64px) 16px',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -115,10 +114,10 @@ export default function GameSelectPage() {
       <div
         style={{
           position: 'relative', zIndex: 10, width: '100%',
-          maxWidth: 980,
+          maxWidth: 900,
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
-          gap: 18,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
+          gap: 14,
         }}
       >
         {GAMES.map(game => (
@@ -127,7 +126,7 @@ export default function GameSelectPage() {
       </div>
 
       <p style={{ color: '#374151', fontSize: '0.72rem', marginTop: 52, position: 'relative', zIndex: 10, letterSpacing: '0.05em' }}>
-        BUILT WITH ❤️ FOR PUZZLE LOVERS
+        BUILT FOR PUZZLE LOVERS
       </p>
     </div>
   );
