@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useGameStore } from '../store/gameStore';
 import { formatTime } from '../utils/sudokuGenerator';
 import SudokuBoard from '../components/SudokuBoard';
@@ -7,6 +8,69 @@ import NumberPad from '../components/NumberPad';
 import ActionButtons from '../components/ActionButtons';
 import GameHeader from '../components/GameHeader';
 
+// ─── Focus trap ───────────────────────────────────────────────────────────────
+function useFocusTrap(active: boolean, ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    if (!active || !ref.current) return;
+    const el = ref.current;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    first?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last)  { e.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [active]);
+}
+
+// ─── Confetti particles ───────────────────────────────────────────────────────
+const CONFETTI_COLORS = ['#93C5FD','#6EE7B7','#FCD34D','#FCA5A5','#C4B5FD','#7DD3FC','#F9A8D4','#86EFAC'];
+const PARTICLE_COUNT  = 14;
+
+function Confetti() {
+  return (
+    <>
+      {Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+        const angle  = (i / PARTICLE_COUNT) * 360;
+        const dist   = 90 + (i % 3) * 30;
+        const tx     = Math.cos(angle * Math.PI / 180) * dist;
+        const ty     = Math.sin(angle * Math.PI / 180) * dist;
+        const size   = 7 + (i % 4) * 3;
+        const color  = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        const delay  = i * 0.035;
+        const round  = i % 3 !== 2;
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: '50%', top: '40%',
+              width: size, height: round ? size : size * 0.5,
+              borderRadius: round ? '50%' : 3,
+              background: color,
+              pointerEvents: 'none',
+              zIndex: 10,
+              animation: `completionBurst 0.85s ${delay}s cubic-bezier(0.22,1,0.36,1) forwards`,
+              '--tx': `${tx}px`,
+              '--ty': `${ty}px`,
+            } as React.CSSProperties}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function GamePage() {
   const navigate     = useNavigate();
   const tick         = useGameStore(s => s.tick);
@@ -57,21 +121,43 @@ export default function GamePage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  const prevBest = bestTimes[difficulty];
+  // New-record toast
+  const toastedRef = useRef(false);
+  useEffect(() => {
+    if (isComplete && isNewRecord && !toastedRef.current) {
+      toastedRef.current = true;
+      toast.success('🏆 New Record!', { description: `${label} — ${formatTime(seconds)}` });
+    }
+    if (!isComplete) toastedRef.current = false;
+  }, [isComplete, isNewRecord, label, seconds]);
+
+  const prevBest  = bestTimes[difficulty];
+  const modalRef  = useRef<HTMLDivElement>(null);
+  useFocusTrap(isComplete, modalRef);
 
   const BLUE = '#93C5FD';
-  const T3   = 'rgba(255,255,255,0.38)';
-  const T2   = 'rgba(255,255,255,0.65)';
+  const T3   = 'rgba(255,255,255,0.55)';
+  const T2   = 'rgba(255,255,255,0.72)';
   const BDR  = 'rgba(255,255,255,0.14)';
 
   return (
     <div style={{ height: '100dvh', background: '#1E3A8A', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* aria-live region for screen readers */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+      >
+        {mistakes > 0 && `${mistakes} mistake${mistakes !== 1 ? 's' : ''} made.`}
+        {isComplete && `Puzzle solved in ${formatTime(seconds)}!`}
+      </div>
+
       <GameHeader />
 
       <main style={{
         flex: 1, display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
-        gap: 32, padding: '20px 16px',
+        gap: 'clamp(14px, 3vh, 32px)', padding: 'clamp(10px, 2vh, 24px) 16px',
         flexWrap: 'wrap', overflow: 'hidden',
       }}>
         <div style={{ flexShrink: 0 }}>
@@ -79,7 +165,7 @@ export default function GamePage() {
         </div>
 
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 14,
+          display: 'flex', flexDirection: 'column', gap: 'clamp(10px, 1.6vh, 16px)',
           width: '100%', maxWidth: 340,
         }}>
           <ActionButtons />
@@ -101,20 +187,30 @@ export default function GamePage() {
 
       {/* Victory modal */}
       {isComplete && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-        }}>
-          <div style={{
-            background: 'rgba(30,58,138,0.95)',
-            border: `1px solid ${BDR}`,
-            borderRadius: 28, padding: 40,
-            maxWidth: 380, width: '100%', textAlign: 'center',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-            animation: 'fadeUp 0.3s cubic-bezier(.34,1.56,.64,1)',
-            backdropFilter: 'blur(20px)',
-          }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Puzzle complete"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <Confetti />
+          <div
+            ref={modalRef}
+            style={{
+              background: 'rgba(30,58,138,0.95)',
+              border: `1px solid ${BDR}`,
+              borderRadius: 28, padding: 40,
+              maxWidth: 380, width: '100%', textAlign: 'center',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+              animation: 'fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+              backdropFilter: 'blur(20px)',
+              position: 'relative', zIndex: 2,
+            }}
+          >
             <div style={{ fontSize: 52, marginBottom: 12 }}>{isNewRecord ? '🏆' : '🎉'}</div>
             <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', marginBottom: 6 }}>Puzzle Solved!</h2>
             <p style={{ color: T2, fontSize: '0.9rem', marginBottom: 4 }}>{label} · {formatTime(seconds)}</p>
@@ -148,7 +244,7 @@ export default function GamePage() {
                 fontSize: '1rem', fontWeight: 800,
                 cursor: 'pointer', marginBottom: 10,
                 transition: 'background 0.15s',
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: "'Outfit', sans-serif",
               }}
             >New Game</button>
             <button
@@ -160,7 +256,7 @@ export default function GamePage() {
                 background: 'none', border: 'none',
                 color: T3, fontSize: '0.85rem', fontWeight: 600,
                 cursor: 'pointer', transition: 'color 0.15s',
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: "'Outfit', sans-serif",
               }}
             >Change Difficulty</button>
           </div>

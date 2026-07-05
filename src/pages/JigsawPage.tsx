@@ -15,7 +15,7 @@ const ACCENT_BORDER = 'rgba(167,139,250,0.32)';
 const BDR           = 'rgba(255,255,255,0.14)';
 const T1            = '#FFFFFF';
 const T2            = 'rgba(255,255,255,0.70)';
-const T3            = 'rgba(255,255,255,0.38)';
+const T3            = 'rgba(255,255,255,0.55)';
 
 // ─── Jigsaw shape helpers ─────────────────────────────────────────────────────
 
@@ -170,6 +170,17 @@ export default function JigsawPage() {
   // Drag state
   const [drag, setDrag] = useState<{ pieceId: number; x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ row: number; col: number } | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Track image load for shimmer skeleton
+  useEffect(() => {
+    if (!imageUrl) return;
+    setImageLoaded(false);
+    const img = new Image();
+    img.onload  = () => setImageLoaded(true);
+    img.onerror = () => setImageLoaded(true); // fail-open
+    img.src = imageUrl;
+  }, [imageUrl]);
 
   // Mouse drag
   useEffect(() => {
@@ -245,7 +256,7 @@ export default function JigsawPage() {
   if (screen === 'levels') {
     return (
       <div style={{
-        minHeight: '100vh', background: PAGE_BG,
+        minHeight: '100dvh', background: PAGE_BG,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 'clamp(24px,5vh,48px) 16px', position: 'relative',
       }}>
@@ -426,6 +437,16 @@ export default function JigsawPage() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             backdropFilter: 'blur(8px)',
           }}>
+            {/* Shimmer skeleton while image loads */}
+            {!imageLoaded && (
+              <div
+                className="shimmer"
+                style={{
+                  position: 'absolute', inset: 0, borderRadius: 12,
+                  zIndex: 10, pointerEvents: 'none',
+                }}
+              />
+            )}
             {Array.from({ length: level.gridSize }, (_, row) =>
               Array.from({ length: level.gridSize }, (_, col) => {
                 const cell = board[row]?.[col];
@@ -570,7 +591,7 @@ export default function JigsawPage() {
           <div onClick={e => e.stopPropagation()} style={{
             background: 'rgba(124,45,18,0.95)', border: `1px solid ${ACCENT_BORDER}`,
             borderRadius: 20, padding: 20, maxWidth: 420, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.25s cubic-bezier(.34,1.56,.64,1)',
+            animation: 'fadeUp 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
             backdropFilter: 'blur(20px)',
           }}>
             <p style={{ fontSize: '0.63rem', fontWeight: 800, letterSpacing: '0.1em', color: ACCENT, textTransform: 'uppercase', marginBottom: 12 }}>
@@ -601,7 +622,7 @@ export default function JigsawPage() {
             background: 'rgba(124,45,18,0.95)',
             border: `1px solid ${BDR}`, borderRadius: 24, padding: '32px 28px',
             maxWidth: 320, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.3s cubic-bezier(.34,1.56,.64,1)',
+            animation: 'fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
             boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
             backdropFilter: 'blur(20px)',
           }}>

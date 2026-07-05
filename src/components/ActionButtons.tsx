@@ -18,10 +18,10 @@ export default function ActionButtons() {
   const [pressing, setPressing] = useState<string | null>(null);
 
   const actions = [
-    { id: 'undo',  label: 'Undo',  sub: undefined,                onClick: undo,        disabled: history.length === 0 || isComplete, active: false },
-    { id: 'erase', label: 'Erase', sub: undefined,                onClick: erase,       disabled: isComplete,                          active: false },
-    { id: 'notes', label: 'Notes', sub: isNotesMode ? 'ON' : 'OFF', onClick: toggleNotes, disabled: isComplete,                        active: isNotesMode },
-    { id: 'hint',  label: 'Hint',  sub: `${hintsLeft}`,           onClick: useHint,     disabled: hintsLeft <= 0 || isComplete,        active: false },
+    { id: 'undo',  label: 'Undo',  ariaLabel: 'Undo last move',              sub: undefined,                onClick: undo,        disabled: history.length === 0 || isComplete, active: false },
+    { id: 'erase', label: 'Erase', ariaLabel: 'Erase selected cell',         sub: undefined,                onClick: erase,       disabled: isComplete,                          active: false },
+    { id: 'notes', label: 'Notes', ariaLabel: `Toggle notes mode (${isNotesMode ? 'on' : 'off'})`, sub: isNotesMode ? 'ON' : 'OFF', onClick: toggleNotes, disabled: isComplete, active: isNotesMode },
+    { id: 'hint',  label: 'Hint',  ariaLabel: `Use hint (${hintsLeft} left)`, sub: `${hintsLeft}`,          onClick: useHint,     disabled: hintsLeft <= 0 || isComplete,        active: false },
   ] as const;
 
   return (
@@ -29,6 +29,8 @@ export default function ActionButtons() {
       {actions.map(action => (
         <button
           key={action.id}
+          aria-label={action.ariaLabel}
+          aria-pressed={action.active}
           onMouseDown={() => setPressing(action.id)}
           onMouseUp={() => { setPressing(null); if (!action.disabled) action.onClick(); }}
           onMouseLeave={() => setPressing(null)}

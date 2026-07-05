@@ -9,7 +9,7 @@ const CARD = 'rgba(255,255,255,0.08)';
 const BDR  = 'rgba(255,255,255,0.14)';
 const T1   = '#FFFFFF';
 const T2   = 'rgba(255,255,255,0.70)';
-const T3   = 'rgba(255,255,255,0.38)';
+const T3   = 'rgba(255,255,255,0.55)';
 const BLUE = '#93C5FD';
 
 const ACCENT_MAP: Record<Difficulty, { color: string; subtle: string; border: string }> = {
@@ -35,7 +35,7 @@ export default function HomePage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: BG,
+      minHeight: '100dvh', background: BG,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: '48px 16px', position: 'relative',
     }}>
@@ -69,7 +69,7 @@ export default function HomePage() {
             border: '1px solid rgba(147,197,253,0.25)',
             fontSize: 36, marginBottom: 20,
           }}>🔢</div>
-          <h1 className="gradient-text-blue" style={{ fontSize: '2.8rem', lineHeight: 1.1, marginBottom: 10, fontWeight: 900 }}>
+          <h1 style={{ fontSize: '2.8rem', lineHeight: 1.1, marginBottom: 10, fontWeight: 900, color: BLUE }}>
             Sudoku
           </h1>
           <p style={{ color: T2, fontSize: '0.9rem', lineHeight: 1.6 }}>Train your brain, one number at a time</p>
@@ -103,19 +103,17 @@ export default function HomePage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '16px 20px', background: CARD, border: `1px solid ${BDR}`,
                   borderRadius: 16, cursor: 'pointer', textAlign: 'left',
-                  transition: 'all 0.2s cubic-bezier(.34,1.56,.64,1)',
+                  transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
                   backdropFilter: 'blur(8px)',
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
                     <span style={{
-                      fontSize: '0.67rem', fontWeight: 800, letterSpacing: '0.07em',
-                      padding: '3px 9px', borderRadius: 100,
-                      background: accent.subtle, color: accent.color,
-                      border: `1px solid ${accent.border}`, textTransform: 'uppercase',
+                      fontSize: '1.15rem', fontWeight: 800, color: accent.color,
+                      letterSpacing: '-0.01em', lineHeight: 1.2,
                     }}>{cfg.label}</span>
-                    <span style={{ fontSize: '0.75rem', color: T3 }}>{cfg.clueLabel}</span>
+                    <span style={{ fontSize: '0.72rem', color: T3, fontWeight: 600 }}>{cfg.clueLabel}</span>
                   </div>
                   <span style={{ fontSize: '0.85rem', color: T2 }}>{cfg.description}</span>
                 </div>

@@ -36,7 +36,7 @@ interface GameState {
   history: HistoryEntry[];
   isComplete: boolean;
   seconds: number;
-  flashingLines: { rows: number[]; cols: number[] };
+  flashingLines: { rows: number[]; cols: number[]; boxes: number[] };
   bestTimes: Partial<Record<Difficulty, number>>;
   isNewRecord: boolean;
 
@@ -58,10 +58,13 @@ function detectNewlyCompleteLines(
   solution: Grid,
   changedRow: number,
   changedCol: number,
-  size: number
-): { rows: number[]; cols: number[] } {
+  size: number,
+  boxRows: number,
+  boxCols: number
+): { rows: number[]; cols: number[]; boxes: number[] } {
   const rows: number[] = [];
   const cols: number[] = [];
+  const boxes: number[] = [];
 
   const rowNowDone = newGrid[changedRow].every((v, c) => v === solution[changedRow][c]);
   const rowWasDone = oldGrid[changedRow].every((v, c) => v !== null && v === solution[changedRow][c]);
@@ -71,7 +74,27 @@ function detectNewlyCompleteLines(
   const colWasDone = Array.from({ length: size }, (_, r) => oldGrid[r][changedCol] !== null && oldGrid[r][changedCol] === solution[r][changedCol]).every(Boolean);
   if (colNowDone && !colWasDone) cols.push(changedCol);
 
-  return { rows, cols };
+  // Box containing the changed cell
+  const boxR = Math.floor(changedRow / boxRows) * boxRows;
+  const boxC = Math.floor(changedCol / boxCols) * boxCols;
+  let boxNowDone = true;
+  let boxWasDone = true;
+  for (let r = boxR; r < boxR + boxRows; r++) {
+    for (let c = boxC; c < boxC + boxCols; c++) {
+      if (newGrid[r][c] !== solution[r][c]) boxNowDone = false;
+      if (oldGrid[r][c] === null || oldGrid[r][c] !== solution[r][c]) boxWasDone = false;
+    }
+  }
+  if (boxNowDone && !boxWasDone) {
+    boxes.push(Math.floor(changedRow / boxRows) * (size / boxCols) + Math.floor(changedCol / boxCols));
+  }
+
+  return { rows, cols, boxes };
+}
+
+// Light haptic feedback on supported devices (Android Chrome); no-op elsewhere
+function vibrate(pattern: number | number[]) {
+  try { navigator.vibrate?.(pattern); } catch { /* unsupported */ }
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -88,7 +111,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   history: [],
   isComplete: false,
   seconds: 0,
-  flashingLines: { rows: [], cols: [] },
+  flashingLines: { rows: [], cols: [], boxes: [] },
   bestTimes: loadAllBestTimes(),
   isNewRecord: false,
 
@@ -110,7 +133,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       history: [],
       isComplete: false,
       seconds: 0,
-      flashingLines: { rows: [], cols: [] },
+      flashingLines: { rows: [], cols: [], boxes: [] },
       isNewRecord: false,
     });
   },
@@ -153,18 +176,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newMistakes = num !== solution[row][col] ? mistakes + 1 : mistakes;
     const newComplete = isBoardComplete(newGrid, solution);
 
-    let newFlashing = { rows: [] as number[], cols: [] as number[] };
+    let newFlashing = { rows: [] as number[], cols: [] as number[], boxes: [] as number[] };
     if (newComplete) {
       // Full board celebration flash
       const allIdx = Array.from({ length: size }, (_, i) => i);
-      newFlashing = { rows: allIdx, cols: allIdx };
+      newFlashing = { rows: allIdx, cols: allIdx, boxes: [] };
+      vibrate([30, 60, 30]);
       if (flashTimeout) clearTimeout(flashTimeout);
-      flashTimeout = setTimeout(() => { set({ flashingLines: { rows: [], cols: [] } }); flashTimeout = null; }, 1500);
+      flashTimeout = setTimeout(() => { set({ flashingLines: { rows: [], cols: [], boxes: [] } }); flashTimeout = null; }, 1500);
     } else if (num === solution[row][col]) {
-      newFlashing = detectNewlyCompleteLines(newGrid, userGrid, solution, row, col, size);
-      if (newFlashing.rows.length > 0 || newFlashing.cols.length > 0) {
+      newFlashing = detectNewlyCompleteLines(newGrid, userGrid, solution, row, col, size, boxRows, boxCols);
+      if (newFlashing.rows.length > 0 || newFlashing.cols.length > 0 || newFlashing.boxes.length > 0) {
+        vibrate(20);
         if (flashTimeout) clearTimeout(flashTimeout);
-        flashTimeout = setTimeout(() => { set({ flashingLines: { rows: [], cols: [] } }); flashTimeout = null; }, 900);
+        flashTimeout = setTimeout(() => { set({ flashingLines: { rows: [], cols: [], boxes: [] } }); flashTimeout = null; }, 900);
       }
     }
 
@@ -238,11 +263,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     newNotes[row][col] = Array(9).fill(false);
     const newComplete = isBoardComplete(newGrid, solution);
 
-    const newFlashing = detectNewlyCompleteLines(newGrid, userGrid, solution, row, col, size);
-    if (newFlashing.rows.length > 0 || newFlashing.cols.length > 0) {
+    const { boxRows, boxCols } = get().puzzleConfig;
+    const newFlashing = detectNewlyCompleteLines(newGrid, userGrid, solution, row, col, size, boxRows, boxCols);
+    if (newFlashing.rows.length > 0 || newFlashing.cols.length > 0 || newFlashing.boxes.length > 0) {
       if (flashTimeout) clearTimeout(flashTimeout);
       flashTimeout = setTimeout(() => {
-        set({ flashingLines: { rows: [], cols: [] } });
+        set({ flashingLines: { rows: [], cols: [], boxes: [] } });
         flashTimeout = null;
       }, 900);
     }
@@ -274,3 +300,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!get().isComplete) set(state => ({ seconds: state.seconds + 1 }));
   },
 }));
+
+// Dev-only: expose store for browser-console testing
+if (import.meta.env.DEV) {
+  (window as unknown as { __gameStore: typeof useGameStore }).__gameStore = useGameStore;
+}

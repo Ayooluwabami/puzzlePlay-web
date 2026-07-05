@@ -11,7 +11,7 @@ const CARD_S  = 'rgba(255,255,255,0.07)';
 const BDR     = 'rgba(255,255,255,0.14)';
 const T1      = '#FFFFFF';
 const T2      = 'rgba(255,255,255,0.70)';
-const T3      = 'rgba(255,255,255,0.38)';
+const T3      = 'rgba(255,255,255,0.55)';
 const ACCENT  = '#34D399';   // emerald-400 — bright pop on teal
 const ACC_SUB = 'rgba(52,211,153,0.12)';
 const ACC_BDR = 'rgba(52,211,153,0.28)';
@@ -107,7 +107,7 @@ export default function WordSearchPage() {
   if (screen === 'levels') {
     return (
       <div style={{
-        minHeight: '100vh', background: BG,
+        minHeight: '100dvh', background: BG,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: 'clamp(24px,5vh,48px) 16px', position: 'relative', overflow: 'hidden',
       }}>
@@ -256,36 +256,74 @@ export default function WordSearchPage() {
         flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '10px 12px', gap: 8, overflow: 'hidden',
       }}>
-        {/* Word chips — compact panel */}
+        {/* aria-live for screen readers */}
+        <div aria-live="polite" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
+          {found.length > 0 && `Found ${found[found.length - 1]?.word}. ${found.length} of ${words.length} words found.`}
+        </div>
+
+        {/* Word chips + progress ring */}
         <div style={{
           width: '100%', maxWidth: gridPx + 8,
           background: CARD_S, border: `1px solid ${BDR}`,
           borderRadius: 12, padding: '8px 12px',
           backdropFilter: 'blur(8px)', flexShrink: 0,
         }}>
-          <div style={{
-            fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.14em',
-            color: ACCENT, textTransform: 'uppercase', textAlign: 'center', marginBottom: 6,
-          }}>
-            {theme} · {found.length}/{words.length}
+          {/* Header row: theme label + progress ring */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.14em', color: ACCENT, textTransform: 'uppercase' }}>
+              {theme}
+            </span>
+            {/* Progress ring */}
+            <svg width="28" height="28" viewBox="0 0 28 28" aria-label={`${found.length} of ${words.length} words found`}>
+              <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
+              <circle
+                cx="14" cy="14" r="11" fill="none"
+                stroke={found.length === words.length ? '#34D399' : ACCENT}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 11}`}
+                strokeDashoffset={`${2 * Math.PI * 11 * (1 - found.length / words.length)}`}
+                transform="rotate(-90 14 14)"
+                style={{ transition: 'stroke-dashoffset 0.4s cubic-bezier(0.22,1,0.36,1), stroke 0.3s' }}
+              />
+            </svg>
+            <span style={{ fontSize: '0.58rem', fontWeight: 800, color: T3, letterSpacing: '0.06em' }}>
+              {found.length}/{words.length}
+            </span>
           </div>
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
             {words.map(word => {
               const fnd = found.find(f => f.word === word);
               return (
-                <span key={word} style={{
-                  fontSize: 'clamp(0.65rem,2vw,0.8rem)', fontWeight: 700,
-                  color: fnd ? '#fff' : T2,
-                  background: fnd ? fnd.color : 'rgba(255,255,255,0.08)',
-                  border: `1px solid ${fnd ? 'transparent' : BDR}`,
-                  padding: '2px 9px', borderRadius: 20,
-                  textDecoration: fnd ? 'line-through' : 'none',
-                  opacity: fnd ? 0.9 : 1,
-                  transition: 'all 0.25s ease',
-                  letterSpacing: '0.03em',
-                  display: 'inline-block', lineHeight: 1.6,
-                }}>
+                <span
+                  key={word}
+                  style={{
+                    position: 'relative',
+                    fontSize: 'clamp(0.65rem,2vw,0.8rem)', fontWeight: 700,
+                    color: fnd ? '#fff' : T2,
+                    background: fnd ? fnd.color : 'rgba(255,255,255,0.08)',
+                    border: `1px solid ${fnd ? 'transparent' : BDR}`,
+                    padding: '2px 9px', borderRadius: 20,
+                    opacity: fnd ? 0.88 : 1,
+                    transition: 'background 0.25s ease, color 0.2s, opacity 0.2s',
+                    letterSpacing: '0.03em',
+                    display: 'inline-block', lineHeight: 1.6,
+                    overflow: 'hidden',
+                  }}
+                >
                   {word}
+                  {fnd && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '50%', left: '6px', right: '6px',
+                      height: 1.5,
+                      background: 'rgba(255,255,255,0.85)',
+                      transformOrigin: 'left',
+                      animation: 'strikethrough 0.38s cubic-bezier(0.22,1,0.36,1) forwards',
+                      pointerEvents: 'none',
+                    }} />
+                  )}
                 </span>
               );
             })}
@@ -354,7 +392,7 @@ export default function WordSearchPage() {
             background: 'rgba(19,78,74,0.92)',
             border: `1px solid ${BDR}`, borderRadius: 24, padding: '36px 28px',
             maxWidth: 340, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.3s cubic-bezier(.34,1.56,.64,1)',
+            animation: 'fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
             boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
             backdropFilter: 'blur(20px)',
           }}>

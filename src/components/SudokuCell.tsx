@@ -8,11 +8,11 @@ interface Props {
 }
 
 export default function SudokuCell({ row, col, cellPx }: Props) {
-  const userGrid     = useGameStore(s => s.userGrid);
-  const puzzle       = useGameStore(s => s.puzzle);
-  const notes        = useGameStore(s => s.notes);
-  const selectedCell = useGameStore(s => s.selectedCell);
-  const selectCell   = useGameStore(s => s.selectCell);
+  const userGrid      = useGameStore(s => s.userGrid);
+  const puzzle        = useGameStore(s => s.puzzle);
+  const notes         = useGameStore(s => s.notes);
+  const selectedCell  = useGameStore(s => s.selectedCell);
+  const selectCell    = useGameStore(s => s.selectCell);
   const flashingLines = useGameStore(s => s.flashingLines);
   const { size, boxRows, boxCols } = useGameStore(s => s.puzzleConfig);
 
@@ -33,7 +33,31 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
   const isSameNumber = !isSelected && selValue !== null && value === selValue && value !== null;
   const hasNotes     = cellNotes.slice(0, size).some(Boolean);
 
-  const shouldFlash = flashingLines.rows.includes(row) || flashingLines.cols.includes(col);
+  // Conflict: same number appears twice in this row, column, or box.
+  // Rule-violation feedback only — never compared against the solution.
+  let hasConflict = false;
+  if (value !== null && !isPreFilled) {
+    for (let c = 0; c < size && !hasConflict; c++) {
+      if (c !== col && userGrid[row][c] === value) hasConflict = true;
+    }
+    for (let r = 0; r < size && !hasConflict; r++) {
+      if (r !== row && userGrid[r][col] === value) hasConflict = true;
+    }
+    const boxR = Math.floor(row / boxRows) * boxRows;
+    const boxC = Math.floor(col / boxCols) * boxCols;
+    for (let r = boxR; r < boxR + boxRows && !hasConflict; r++) {
+      for (let c = boxC; c < boxC + boxCols && !hasConflict; c++) {
+        if ((r !== row || c !== col) && userGrid[r][c] === value) hasConflict = true;
+      }
+    }
+  }
+
+  // Green streak when this cell's row, column, or box was just completed correctly
+  const boxIndex = Math.floor(row / boxRows) * (size / boxCols) + Math.floor(col / boxCols);
+  const shouldFlash =
+    flashingLines.rows.includes(row) ||
+    flashingLines.cols.includes(col) ||
+    flashingLines.boxes.includes(boxIndex);
   const [showFlash, setShowFlash] = useState(false);
   const flashRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -49,8 +73,10 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
   const borderRight  = (col + 1) % boxCols === 0 && col !== size - 1;
   const borderBottom = (row + 1) % boxRows === 0 && row !== size - 1;
 
-  // Cell background on navy (#1E3A8A) background
-  const bgColor = isSelected
+  // Cell background on navy (#1E3A8A)
+  const bgColor = hasConflict
+    ? 'rgba(248,113,113,0.16)'
+    : isSelected
     ? 'rgba(147,197,253,0.28)'
     : isSameNumber
     ? 'rgba(147,197,253,0.14)'
@@ -58,13 +84,25 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
     ? 'rgba(255,255,255,0.06)'
     : 'transparent';
 
-  // Pre-filled: white; user-entered: light blue
-  const textColor = isPreFilled ? '#FFFFFF' : '#93C5FD';
+  // Pre-filled: white · user-entered: light blue · conflict: red
+  const textColor = hasConflict ? '#F87171' : isPreFilled ? '#FFFFFF' : '#93C5FD';
   const fontSize  = Math.round(cellPx * 0.52);
   const noteFontSz = Math.round(cellPx * 0.19);
 
+  const cellLabel = isPreFilled
+    ? `Row ${row + 1}, column ${col + 1}: given ${value}`
+    : value !== null
+    ? `Row ${row + 1}, column ${col + 1}: ${value}${hasConflict ? ', conflicts with another cell' : ''}`
+    : `Row ${row + 1}, column ${col + 1}: empty`;
+
   return (
     <td
+      role="gridcell"
+      aria-rowindex={row + 1}
+      aria-colindex={col + 1}
+      aria-label={cellLabel}
+      aria-selected={isSelected}
+      tabIndex={isSelected ? 0 : -1}
       onClick={() => selectCell(row, col)}
       style={{
         width: cellPx, height: cellPx, minWidth: cellPx,
@@ -79,6 +117,7 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
         outlineOffset: '-2px',
       }}
     >
+      {/* Green streak — row/column/box completed correctly */}
       {showFlash && (
         <div style={{
           position: 'absolute', inset: 0,
@@ -93,7 +132,10 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize, fontWeight: isPreFilled ? 700 : 600,
           color: textColor, lineHeight: 1, zIndex: 2,
-          textShadow: isPreFilled ? 'none' : '0 0 12px rgba(147,197,253,0.4)',
+          textShadow: hasConflict
+            ? '0 0 12px rgba(248,113,113,0.5)'
+            : isPreFilled ? 'none' : '0 0 12px rgba(147,197,253,0.4)',
+          transition: 'color 0.15s ease',
         }}>
           {value}
         </span>

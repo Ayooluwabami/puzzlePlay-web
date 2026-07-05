@@ -1,5 +1,7 @@
 import { Component, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
+import { Toaster } from 'sonner';
 import GameSelectPage from './pages/GameSelectPage';
 import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
@@ -21,11 +23,18 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
   }
 }
 
-function App() {
+const fade = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.18 } },
+  exit:    { opacity: 0, transition: { duration: 0.12 } },
+};
+
+function AnimatedRoutes() {
+  const location = useLocation();
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
-        <Routes>
+    <AnimatePresence mode="wait">
+      <motion.div key={location.pathname} {...fade} style={{ width: '100%', minHeight: '100dvh' }}>
+        <Routes location={location}>
           <Route path="/"              element={<GameSelectPage />} />
           <Route path="/sudoku"        element={<HomePage />} />
           <Route path="/sudoku/play"   element={<GamePage />} />
@@ -33,6 +42,17 @@ function App() {
           <Route path="/jigsaw"        element={<JigsawPage />} />
           <Route path="*"              element={<Navigate to="/" replace />} />
         </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster position="top-center" richColors toastOptions={{ duration: 3000 }} />
+        <AnimatedRoutes />
       </BrowserRouter>
     </ErrorBoundary>
   );
