@@ -1,45 +1,27 @@
-import { useState, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import SudokuCell from './SudokuCell';
+import { C } from '../design/tokens';
 
-function getBoardMax() {
-  // Fit within width AND height: on mobile the header (~64px), action buttons,
-  // number pad and back link (~270px together) share the viewport with the board.
-  const isMobileLayout = window.innerWidth < 720;
-  const heightBudget = isMobileLayout
-    ? window.innerHeight - 340
-    : window.innerHeight - 140;
-  return Math.max(240, Math.min(460, window.innerWidth - 32, heightBudget));
-}
-
-export default function SudokuBoard() {
+// Renders the grid at the largest whole-pixel size that fits `maxPx`
+export default function SudokuBoard({ maxPx }: { maxPx: number }) {
   const { size } = useGameStore(s => s.puzzleConfig);
-  const [boardMaxPx, setBoardMaxPx] = useState(getBoardMax);
 
-  useEffect(() => {
-    const handle = () => setBoardMaxPx(getBoardMax());
-    window.addEventListener('resize', handle);
-    return () => window.removeEventListener('resize', handle);
-  }, []);
-
-  const cellPx  = Math.floor(boardMaxPx / size);
+  const cellPx  = Math.max(24, Math.floor((maxPx - 4) / size));
   const boardPx = cellPx * size;
 
   return (
     <div style={{
       display: 'inline-block',
-      border: '1px solid rgba(255,255,255,0.15)',
-      background: 'rgba(255,255,255,0.06)',
-      borderRadius: 14,
+      border: `2px solid ${C.ink}`,
+      borderRadius: 12,
       overflow: 'hidden',
-      width: boardPx,
-      boxShadow: '0 8px 40px rgba(0,0,0,0.35)',
-      backdropFilter: 'blur(8px)',
+      background: C.surface,
+      boxShadow: `0 4px 0 ${C.ink}`,
     }}>
       <table
         role="grid"
         aria-label="Sudoku puzzle grid"
-        style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: boardPx }}
+        style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: boardPx, display: 'block' }}
       >
         <tbody>
           {Array.from({ length: size }, (_, r) => (

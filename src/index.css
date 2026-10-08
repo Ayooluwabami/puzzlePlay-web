@@ -1,4 +1,160 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap');
+
+/* ─── Tokens (mirrors src/design/tokens.ts) ─────────────────────── */
+:root {
+  --paper: #F5F1E8;
+  --paper-deep: #ECE6D9;
+  --surface: #FFFDF8;
+  --ink: #17171A;
+  --ink-2: #4F4B44;
+  --ink-3: #8A847A;
+  --line: rgba(23, 23, 26, 0.12);
+  --display: 'Fraunces', Georgia, serif;
+  --ui: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root { min-height: 100%; }
+
+html {
+  /* No rubber-band bounce — feels like an app, not a page */
+  overscroll-behavior: none;
+  background: var(--paper);
+}
+
+body {
+  font-family: var(--ui);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  /* No text-selection or long-press callouts mid-game */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+button { font-family: inherit; color: inherit; }
+
+h1, h2, h3 { text-wrap: balance; font-weight: 700; }
+p { text-wrap: pretty; }
+
+.display {
+  font-family: var(--display);
+  font-variation-settings: 'opsz' 96;
+  letter-spacing: -0.02em;
+}
+
+.tnum { font-variant-numeric: lining-nums tabular-nums; }
+.display { font-variant-numeric: lining-nums; }
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ─── Focus rings ────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ─── Pressable surfaces (ink border + offset shadow) ────────────── */
+.press {
+  --lift: 3px;
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 var(--lift) 0 var(--ink);
+  transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease), background-color 0.15s;
+  cursor: pointer;
+}
+.press:active:not(:disabled) {
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 var(--ink);
+}
+@media (hover: hover) {
+  .press:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 calc(var(--lift) + 1px) 0 var(--ink);
+  }
+  .press:active:not(:disabled) {
+    transform: translateY(var(--lift));
+    box-shadow: 0 0 0 var(--ink);
+  }
+}
+.press:disabled { cursor: default; }
+.press-lg { --lift: 4px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 22px;
+  border-radius: 14px;
+  font-size: 1rem; font-weight: 700; letter-spacing: 0.01em;
+}
+.btn-ink { background: var(--ink); color: var(--paper); }
+.btn-paper { background: var(--surface); color: var(--ink); }
+.btn-text {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.9375rem; font-weight: 600; color: var(--ink-2);
+  padding: 12px; border-radius: 10px;
+  text-decoration: underline; text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.btn-text:hover { color: var(--ink); text-decoration-color: var(--ink); }
+
+/* Round icon button used in top bars */
+.icon-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--ink);
+  border: 1.5px solid var(--ink);
+  cursor: pointer; flex-shrink: 0;
+  transition: background-color 0.15s, transform 0.12s var(--ease);
+}
+.icon-btn:active { transform: scale(0.92); }
+@media (hover: hover) { .icon-btn:hover { background: var(--paper-deep); } }
+
+/* Level rows */
+.level-row {
+  width: 100%;
+  display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 14px;
+  padding: 16px 18px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  transition: background-color 0.15s;
+}
+.level-row + .level-row { border-top: 1px solid var(--line); }
+.level-row:active { background: var(--paper-deep); }
+@media (hover: hover) {
+  .level-row:hover { background: var(--paper); }
+  .level-row:hover .chev { transform: translateX(3px); }
+}
+.chev { transition: transform 0.2s var(--ease); }
+
+/* Thin scrollbars where scrolling exists */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ─── Animations ─────────────────────────────────────────────────── */
 @keyframes fadeUp {
@@ -6,134 +162,63 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes flashGreen {
-  0%, 40% { background-color: rgba(52, 211, 153, 0.5); }
-  100%     { background-color: transparent; }
+@keyframes cellPop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes lineSweep {
+  0%   { background-color: rgba(46, 158, 91, 0); }
+  30%  { background-color: rgba(46, 158, 91, 0.32); }
+  100% { background-color: rgba(46, 158, 91, 0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes drawStroke {
+  from { stroke-dashoffset: var(--len); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes hintPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(23, 23, 26, 0.0); }
+  50%      { box-shadow: 0 0 0 5px rgba(23, 23, 26, 0.18); }
 }
 
 @keyframes correctPieceFlash {
-  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0); background: transparent; transform: scale(1); }
-  18%  { transform: scale(1.09); }
-  36%  { box-shadow: 0 0 0 10px rgba(52,211,153,0.75); background: rgba(52,211,153,0.22); transform: scale(0.97); }
-  58%  { box-shadow: 0 0 0 18px rgba(52,211,153,0.35); background: rgba(52,211,153,0.1); transform: scale(1.02); }
-  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); background: transparent; transform: scale(1); }
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
 }
 .piece-correct-flash {
-  animation: correctPieceFlash 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: correctPieceFlash 0.5s var(--ease);
   z-index: 3 !important;
-}
-
-.shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 100%);
-  background-size: 600px 100%;
-  animation: shimmer 1.4s infinite linear;
-}
-
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.35; }
-  50%       { opacity: 0.7; }
-}
-
-@keyframes popIn {
-  0%   { opacity: 0; transform: scale(0.88); }
-  60%  { transform: scale(1.03); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes completionBurst {
-  0%   { opacity: 1; transform: translate(-50%, -50%) translate(0, 0) scale(1.2); }
-  70%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0.2); }
 }
 
 @keyframes shimmer {
   from { background-position: -400px 0; }
   to   { background-position:  400px 0; }
 }
-
-@keyframes strikethrough {
-  from { transform: translateY(-50%) scaleX(0); }
-  to   { transform: translateY(-50%) scaleX(1); }
+.shimmer {
+  background: linear-gradient(90deg, rgba(23,23,26,0.04) 0%, rgba(23,23,26,0.09) 50%, rgba(23,23,26,0.04) 100%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
+@keyframes confettiFall {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); }
 }
 
-@keyframes timerPulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.55; }
+@keyframes strike {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
-
-/* ─── Base ───────────────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
-
-html, body, #root {
-  min-height: 100%;
-}
-
-html {
-  /* Kill rubber-band bounce so it feels like a native app, not a web page */
-  overscroll-behavior: none;
-}
-
-body {
-  margin: 0;
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0C4A6E;
-  color: #FFFFFF;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none;
-  /* Respect notches and home indicators on installed/mobile view */
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-}
-
-h1, h2, h3 {
-  text-wrap: balance;
-}
-
-p {
-  text-wrap: pretty;
-}
-
-/* ─── Focus rings — visible keyboard nav ─────────────────────────── */
-:focus-visible {
-  outline: 2px solid rgba(255,255,255,0.7);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* ─── Grain — subtle noise to break digital flatness ─────────────── */
-.grain {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-}
-
-/* ─── Dot grid — white dots on coloured backgrounds ─────────────── */
-.dot-grid {
-  background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-/* ─── Accent text utilities ──────────────────────────────────────── */
-.gradient-text       { color: #7DD3FC; }
-.gradient-text-blue  { color: #93C5FD; }
-.gradient-text-green { color: #6EE7B7; }
-.gradient-text-amber { color: #FCD34D; }
-
-/* ─── Scrollbar ──────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
 
 /* ─── Reduced motion ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

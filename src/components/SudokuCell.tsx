@@ -1,5 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { C, FONT, GAMES } from '../design/tokens';
+
+const G = GAMES.sudoku;
 
 interface Props {
   row: number;
@@ -52,7 +55,7 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
     }
   }
 
-  // Green streak when this cell's row, column, or box was just completed correctly
+  // Green sweep when this cell's row, column, or box was just completed correctly
   const boxIndex = Math.floor(row / boxRows) * (size / boxCols) + Math.floor(col / boxCols);
   const shouldFlash =
     flashingLines.rows.includes(row) ||
@@ -70,24 +73,27 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
     return () => clearTimeout(flashRef.current);
   }, [shouldFlash]);
 
-  const borderRight  = (col + 1) % boxCols === 0 && col !== size - 1;
-  const borderBottom = (row + 1) % boxRows === 0 && row !== size - 1;
+  const boxEdgeRight  = (col + 1) % boxCols === 0 && col !== size - 1;
+  const boxEdgeBottom = (row + 1) % boxRows === 0 && row !== size - 1;
 
-  // Cell background on navy (#1E3A8A)
-  const bgColor = hasConflict
-    ? 'rgba(248,113,113,0.16)'
-    : isSelected
-    ? 'rgba(147,197,253,0.28)'
+  const bgColor = isSelected
+    ? (hasConflict ? C.danger : G.color)
+    : hasConflict
+    ? C.dangerTint
     : isSameNumber
-    ? 'rgba(147,197,253,0.14)'
+    ? G.tint2
     : isHighlighted
-    ? 'rgba(255,255,255,0.06)'
-    : 'transparent';
+    ? G.tint
+    : C.surface;
 
-  // Pre-filled: white · user-entered: light blue · conflict: red
-  const textColor = hasConflict ? '#F87171' : isPreFilled ? '#FFFFFF' : '#93C5FD';
-  const fontSize  = Math.round(cellPx * 0.52);
-  const noteFontSz = Math.round(cellPx * 0.19);
+  const textColor = isSelected
+    ? '#FFFFFF'
+    : hasConflict
+    ? C.danger
+    : isPreFilled ? C.ink : G.color;
+
+  const fontSize   = Math.round(cellPx * (size === 9 ? 0.56 : 0.5));
+  const noteFontSz = Math.max(8, Math.round(cellPx * (size === 9 ? 0.24 : 0.2)));
 
   const cellLabel = isPreFilled
     ? `Row ${row + 1}, column ${col + 1}: given ${value}`
@@ -105,53 +111,51 @@ export default function SudokuCell({ row, col, cellPx }: Props) {
       tabIndex={isSelected ? 0 : -1}
       onClick={() => selectCell(row, col)}
       style={{
-        width: cellPx, height: cellPx, minWidth: cellPx,
+        width: cellPx, height: cellPx, minWidth: cellPx, padding: 0,
         backgroundColor: bgColor,
-        borderRight:  borderRight  ? '1.5px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.08)',
-        borderBottom: borderBottom ? '1.5px solid rgba(255,255,255,0.22)' : '1px solid rgba(255,255,255,0.08)',
+        borderRight:  boxEdgeRight  ? `2px solid ${C.ink}` : col !== size - 1 ? `1px solid ${C.line}` : 'none',
+        borderBottom: boxEdgeBottom ? `2px solid ${C.ink}` : row !== size - 1 ? `1px solid ${C.line}` : 'none',
         position: 'relative',
         cursor: 'pointer',
-        userSelect: 'none',
-        transition: 'background-color 0.1s ease',
-        outline: isSelected ? '2px solid rgba(147,197,253,0.7)' : 'none',
-        outlineOffset: '-2px',
+        transition: 'background-color 0.12s ease',
       }}
     >
-      {/* Green streak — row/column/box completed correctly */}
       {showFlash && (
         <div style={{
           position: 'absolute', inset: 0,
-          animation: 'flashGreen 0.9s ease forwards',
+          animation: 'lineSweep 0.9s ease forwards',
           pointerEvents: 'none', zIndex: 1,
         }} />
       )}
 
       {value !== null && !hasNotes ? (
-        <span style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize, fontWeight: isPreFilled ? 700 : 600,
-          color: textColor, lineHeight: 1, zIndex: 2,
-          textShadow: hasConflict
-            ? '0 0 12px rgba(248,113,113,0.5)'
-            : isPreFilled ? 'none' : '0 0 12px rgba(147,197,253,0.4)',
-          transition: 'color 0.15s ease',
-        }}>
+        <span
+          key={value}
+          style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: FONT.ui,
+            fontSize, fontWeight: isPreFilled ? 700 : 500,
+            color: textColor, lineHeight: 1, zIndex: 2,
+            animation: isPreFilled ? undefined : hasConflict ? 'shake 0.3s ease' : 'cellPop 0.28s cubic-bezier(0.22,1,0.36,1)',
+          }}
+        >
           {value}
         </span>
       ) : hasNotes ? (
         <div style={{
-          position: 'absolute', inset: 1,
+          position: 'absolute', inset: 2,
           display: 'grid',
           gridTemplateColumns: `repeat(${boxCols}, 1fr)`,
           gridTemplateRows: `repeat(${boxRows}, 1fr)`,
           zIndex: 2,
         }}>
           {Array.from({ length: size }, (_, i) => i + 1).map(n => (
-            <span key={n} style={{
+            <span key={n} className="tnum" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: noteFontSz, fontWeight: 600,
-              color: 'rgba(147,197,253,0.55)', lineHeight: 1,
+              color: isSelected ? 'rgba(255,255,255,0.9)' : selValue === n ? G.color : C.ink2,
+              lineHeight: 1,
             }}>
               {cellNotes[n - 1] ? n : ''}
             </span>

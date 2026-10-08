@@ -4,10 +4,11 @@ import {
   type WSLevel, type PlacedWord,
 } from '../utils/wordSearchGenerator';
 
+// Highlighter tones — read clearly under ink letters
 const FOUND_COLORS = [
-  '#EF4444', '#F97316', '#EAB308', '#22C55E',
-  '#06B6D4', '#6366F1', '#EC4899', '#8B5CF6',
-  '#14B8A6', '#F59E0B', '#84CC16', '#0EA5E9',
+  '#F6CF5E', '#9DC2F4', '#F4A796', '#A6DCB3',
+  '#C8B4F1', '#F5B5D0', '#8ED2CF', '#F2BE86',
+  '#B8D88A', '#AAB8EF', '#F0A3A3', '#9DD5EF',
 ];
 
 export interface FoundWord {

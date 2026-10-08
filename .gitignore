@@ -87,7 +87,6 @@ dist
 
 # Gatsby files
 .cache/
-public
 
 # Storybook build outputs
 .out
@@ -143,3 +142,6 @@ ios/build/
 android/app/build/
 .expo/web/
 .vercel
+
+# Firebase
+.firebase/

@@ -3,37 +3,50 @@ import { useNavigate } from 'react-router-dom';
 import { useWordSearchStore } from '../store/wordSearchStore';
 import { WS_LEVELS } from '../utils/wordSearchGenerator';
 import { formatTime } from '../utils/sudokuGenerator';
+import LevelScreen from '../components/ui/LevelScreen';
+import TopBar from '../components/ui/TopBar';
+import RestartButton from '../components/ui/RestartButton';
+import CompletionSheet from '../components/ui/CompletionSheet';
+import Icon from '../components/ui/Icon';
+import { useElementSize } from '../hooks/useElementSize';
+import { C, FONT, GAMES } from '../design/tokens';
 
-// Deep teal theme — inspired by thina-landing's #1A2820 forest green sections
-const BG      = '#134E4A';   // teal-900
-const CARD    = 'rgba(255,255,255,0.1)';
-const CARD_S  = 'rgba(255,255,255,0.07)';
-const BDR     = 'rgba(255,255,255,0.14)';
-const T1      = '#FFFFFF';
-const T2      = 'rgba(255,255,255,0.70)';
-const T3      = 'rgba(255,255,255,0.55)';
-const ACCENT  = '#34D399';   // emerald-400 — bright pop on teal
-const ACC_SUB = 'rgba(52,211,153,0.12)';
-const ACC_BDR = 'rgba(52,211,153,0.28)';
+const G = GAMES.words;
+const GRID_PAD = 8;
 
-const SEL_BG  = 'rgba(251,191,36,0.45)';   // amber selection
-const HINT_BG = '#818CF8';                   // indigo hint
+type Cell = { row: number; col: number };
+
+// A capsule from the first to the last cell of a run, drawn under the letters
+function Capsule({ cells, cell, color, outline, dashed, animate }: {
+  cells: Cell[]; cell: number; color: string; outline?: boolean; dashed?: boolean; animate?: boolean;
+}) {
+  if (cells.length === 0) return null;
+  const a = cells[0], b = cells[cells.length - 1];
+  const x1 = GRID_PAD + a.col * cell + cell / 2, y1 = GRID_PAD + a.row * cell + cell / 2;
+  const x2 = GRID_PAD + b.col * cell + cell / 2, y2 = GRID_PAD + b.row * cell + cell / 2;
+  const w = cell * 0.76;
+  const len = Math.hypot(x2 - x1, y2 - y1) + 1;
+  const anim: React.CSSProperties | undefined = animate
+    ? { strokeDasharray: len, animation: 'drawStroke 0.32s cubic-bezier(0.22,1,0.36,1) both', '--len': `${len}` } as React.CSSProperties
+    : undefined;
+
+  if (dashed) {
+    return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.ink} strokeWidth={w} strokeLinecap="round" strokeOpacity={0.12} />;
+  }
+  return (
+    <g>
+      {outline && <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.ink} strokeWidth={w + 3} strokeLinecap="round" style={anim} />}
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={w} strokeLinecap="round" style={anim} />
+    </g>
+  );
+}
 
 export default function WordSearchPage() {
   const navigate = useNavigate();
   const [screen, setScreen] = useState<'levels' | 'game'>('levels');
   const isDragging = useRef(false);
-  const gridRef = useRef<HTMLDivElement>(null);
-
-  const [dims, setDims] = useState(() => ({
-    vw: typeof window !== 'undefined' ? window.innerWidth : 390,
-    vh: typeof window !== 'undefined' ? window.innerHeight : 844,
-  }));
-  useEffect(() => {
-    const handle = () => setDims({ vw: window.innerWidth, vh: window.innerHeight });
-    window.addEventListener('resize', handle);
-    return () => window.removeEventListener('resize', handle);
-  }, []);
+  const [mainRef, area] = useElementSize<HTMLDivElement>();
+  const [listRef, listSize] = useElementSize<HTMLElement>();
 
   const {
     level, theme, words, grid, found, selCells, hintCells, hintsLeft,
@@ -70,27 +83,25 @@ export default function WordSearchPage() {
     startSelection(row, col);
   }, [startSelection]);
 
+  const cellFromTouch = (t: React.Touch) => {
+    const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
+    return el?.dataset.row !== undefined && el?.dataset.col !== undefined
+      ? { row: Number(el.dataset.row), col: Number(el.dataset.col) } : null;
+  };
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     if (!isDragging.current) return;
-    const touch = e.touches[0];
-    const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
-    if (el?.dataset.row !== undefined && el?.dataset.col !== undefined) {
-      setHover(Number(el.dataset.row), Number(el.dataset.col));
-    }
+    const c = cellFromTouch(e.touches[0]);
+    if (c) setHover(c.row, c.col);
   }, [setHover]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     if (!isDragging.current) return;
     isDragging.current = false;
-    const touch = e.changedTouches[0];
-    const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
-    if (el?.dataset.row !== undefined && el?.dataset.col !== undefined) {
-      commitSelection(Number(el.dataset.row), Number(el.dataset.col));
-    } else {
-      cancelSelection();
-    }
+    const c = cellFromTouch(e.changedTouches[0]);
+    if (c) commitSelection(c.row, c.col); else cancelSelection();
   }, [commitSelection, cancelSelection]);
 
   useEffect(() => {
@@ -99,339 +110,183 @@ export default function WordSearchPage() {
     return () => window.removeEventListener('mouseup', up);
   }, [cancelSelection]);
 
-  const isSel    = (r: number, c: number) => selCells.some(cell => cell.row === r && cell.col === c);
-  const isHint   = (r: number, c: number) => hintCells.some(cell => cell.row === r && cell.col === c);
-  const getFound = (r: number, c: number) => found.find(f => f.cells.some(cell => cell.row === r && cell.col === c));
-
-  // ─── LEVELS screen ─────────────────────────────────────────────────
+  // ─── Levels ─────────────────────────────────────────────────────────
   if (screen === 'levels') {
     return (
-      <div style={{
-        minHeight: '100dvh', background: BG,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: 'clamp(24px,5vh,48px) 16px', position: 'relative', overflow: 'hidden',
-      }}>
-        <div className="dot-grid" style={{ position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none' }} />
-        <div style={{
-          position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
-          width: 600, height: 400, borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(52,211,153,0.12) 0%, transparent 65%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 10 }}>
-          <button
-            onClick={() => navigate('/')}
-            onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = T3)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              color: T3, fontSize: '0.72rem', fontWeight: 700,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '0 0 28px', transition: 'color 0.15s',
-            }}
-          >← All Games</button>
-
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 64, height: 64, borderRadius: 18,
-              background: ACC_SUB, border: `1px solid ${ACC_BDR}`,
-              fontSize: 28, marginBottom: 16,
-            }}>🔍</div>
-            <h1 style={{ fontSize: '2.4rem', lineHeight: 1.1, marginBottom: 8, fontWeight: 900, color: T1 }}>
-              Word Search
-            </h1>
-            <p style={{ color: T2, fontSize: '0.875rem', lineHeight: 1.65 }}>
-              Find every hidden word · New theme every game
-            </p>
-          </div>
-
-          <p style={{ fontSize: '0.62rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Choose Difficulty
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {WS_LEVELS.map(lvl => (
-              <button
-                key={lvl.id}
-                onClick={() => { startPuzzle(lvl.id); setScreen('game'); }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.15)';
-                  (e.currentTarget as HTMLElement).style.borderColor = ACC_BDR;
-                  (e.currentTarget as HTMLElement).style.transform = 'translateX(4px)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = CARD;
-                  (e.currentTarget as HTMLElement).style.borderColor = BDR;
-                  (e.currentTarget as HTMLElement).style.transform = 'translateX(0)';
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', background: CARD,
-                  border: `1px solid ${BDR}`, borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                  transition: 'all 0.18s ease', backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{
-                      fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em',
-                      padding: '2px 8px', borderRadius: 100,
-                      background: ACC_SUB, color: ACCENT, border: `1px solid ${ACC_BDR}`,
-                      textTransform: 'uppercase',
-                    }}>{lvl.label}</span>
-                    <span style={{ fontSize: '0.72rem', color: T3 }}>{lvl.puzzles.length} puzzle themes</span>
-                  </div>
-                  <span style={{ fontSize: '0.8rem', color: T2 }}>{lvl.description}</span>
-                </div>
-                <span style={{ color: ACCENT, fontSize: '1rem', fontWeight: 700, marginLeft: 12 }}>›</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <LevelScreen
+        game="words"
+        onBack={() => navigate('/')}
+        levels={WS_LEVELS.map(l => ({ id: l.id, label: l.label, meta: `${l.description} · ${l.puzzles.length} themes` }))}
+        onPick={id => { startPuzzle(id); setScreen('game'); }}
+      />
     );
   }
 
-  // ─── GAME screen — fills viewport, no scroll ───────────────────────
-  const { vw, vh } = dims;
-  const HEADER_H    = 50;
-  const WORDPANEL_H = 72;
-  const PADDING_V   = 20;
-  const availH = vh - HEADER_H - WORDPANEL_H - PADDING_V;
-  const availW = vw - 24;
-
-  const cellSize = Math.max(18, Math.min(
-    Math.floor(availH / level.size),
-    Math.floor(availW / level.size),
-  ));
-  const gridPx = cellSize * level.size;
+  // ─── Game ───────────────────────────────────────────────────────────
+  const n = level.size;
+  const fit = Math.min(area.width, area.height - listSize.height - 16, 620) - GRID_PAD * 2 - 4;
+  const cell = Math.max(16, Math.floor(fit / n));
+  const gridPx = cell * n + GRID_PAD * 2;
+  const foundSet = new Set(found.flatMap(f => f.cells.map(c => `${c.row}-${c.col}`)));
+  const selSet = new Set(selCells.map(c => `${c.row}-${c.col}`));
 
   return (
-    <div style={{ height: '100dvh', background: BG, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', flexShrink: 0,
-        background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(16px)',
-        borderBottom: `1px solid ${BDR}`,
-      }}>
-        <button
-          onClick={() => setScreen('levels')}
-          onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-          onMouseLeave={e => (e.currentTarget.style.color = T3)}
-          style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
-        >← Levels</button>
+    <div style={{
+      height: '100dvh', background: C.paper,
+      paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    }}>
+      <TopBar
+        title="Word Search"
+        meta={<>{theme} · {formatTime(seconds)}</>}
+        onBack={() => setScreen('levels')}
+        backLabel="Back to levels"
+        right={<RestartButton onConfirm={() => startPuzzle(level.id)} needsConfirm={found.length > 0 && !isComplete} />}
+        progress={found.length / words.length}
+        progressColor={isComplete ? C.success : G.color}
+      />
 
-        <span style={{ fontSize: '1.2rem', fontWeight: 800, color: T1, fontVariantNumeric: 'tabular-nums' }}>
-          {formatTime(seconds)}
-        </span>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={useHint}
-            disabled={hintsLeft === 0}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 20,
-              background: hintsLeft > 0 ? ACC_SUB : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${hintsLeft > 0 ? ACC_BDR : BDR}`,
-              color: hintsLeft > 0 ? ACCENT : T3,
-              fontSize: '0.7rem', fontWeight: 700,
-              cursor: hintsLeft > 0 ? 'pointer' : 'not-allowed',
-            }}
-          >💡 {hintsLeft}</button>
-          <button
-            onClick={() => startPuzzle(level.id)}
-            onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = T3)}
-            style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
-          >NEW</button>
-        </div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {found.length > 0 && `Found ${found[found.length - 1]?.word}. ${found.length} of ${words.length} words found.`}
       </div>
 
-      <main style={{
-        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: '10px 12px', gap: 8, overflow: 'hidden',
+      <main ref={mainRef} style={{
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '14px 16px 16px', gap: 16, width: '100%', maxWidth: 720, margin: '0 auto',
       }}>
-        {/* aria-live for screen readers */}
-        <div aria-live="polite" aria-atomic="true" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>
-          {found.length > 0 && `Found ${found[found.length - 1]?.word}. ${found.length} of ${words.length} words found.`}
+        {/* Grid */}
+        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+          {area.width > 0 && listSize.height > 0 && (
+            <div
+              style={{
+                position: 'relative', width: gridPx, height: gridPx,
+                background: C.surface, border: `2px solid ${C.ink}`, borderRadius: 16,
+                boxShadow: `0 4px 0 ${C.ink}`,
+                touchAction: 'none', cursor: 'pointer',
+              }}
+              onMouseLeave={() => { if (isDragging.current) { isDragging.current = false; cancelSelection(); } }}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <svg width={gridPx} height={gridPx} style={{ position: 'absolute', inset: -2, overflow: 'visible', pointerEvents: 'none' }} aria-hidden="true">
+                {hintCells.length > 0 && <Capsule cells={hintCells} cell={cell} color="none" dashed />}
+                {found.map(f => <Capsule key={f.word} cells={f.cells} cell={cell} color={f.color} animate />)}
+                {selCells.length > 0 && <Capsule cells={selCells} cell={cell} color={G.color} outline />}
+              </svg>
+              <div style={{ position: 'absolute', inset: GRID_PAD - 2 }}>
+                {grid.map((row, r) => (
+                  <div key={r} style={{ display: 'flex' }}>
+                    {row.map((letter, c) => {
+                      const key = `${r}-${c}`;
+                      const active = selSet.has(key);
+                      const isFound = foundSet.has(key);
+                      return (
+                        <div
+                          key={c}
+                          data-row={r}
+                          data-col={c}
+                          style={{
+                            width: cell, height: cell,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontFamily: FONT.ui,
+                            fontSize: Math.round(cell * 0.5),
+                            fontWeight: active || isFound ? 800 : 600,
+                            color: C.ink,
+                            opacity: isComplete && !isFound ? 0.3 : 1,
+                            transform: active ? 'scale(1.12)' : 'none',
+                            transition: 'transform 0.1s, opacity 0.4s',
+                          }}
+                          onMouseDown={e => handleMouseDown(e, r, c)}
+                          onMouseEnter={() => handleMouseEnter(r, c)}
+                          onMouseUp={() => handleMouseUp(r, c)}
+                          onTouchStart={e => handleTouchStart(e, r, c)}
+                        >
+                          {letter}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Word chips + progress ring */}
-        <div style={{
-          width: '100%', maxWidth: gridPx + 8,
-          background: CARD_S, border: `1px solid ${BDR}`,
-          borderRadius: 12, padding: '8px 12px',
-          backdropFilter: 'blur(8px)', flexShrink: 0,
+        {/* Word list */}
+        <section ref={listRef} style={{
+          width: '100%', maxWidth: Math.max(gridPx, 320), flexShrink: 0,
+          background: C.surface, border: `1.5px solid ${C.ink}`, borderRadius: 18,
+          padding: '12px 14px 14px',
         }}>
-          {/* Header row: theme label + progress ring */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.14em', color: ACCENT, textTransform: 'uppercase' }}>
-              {theme}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontFamily: FONT.display, fontSize: '1.0625rem', fontWeight: 700 }}>{theme}</span>
+              <span className="tnum" style={{ fontSize: '0.8125rem', fontWeight: 700, color: C.ink3 }}>{found.length}/{words.length}</span>
             </span>
-            {/* Progress ring */}
-            <svg width="28" height="28" viewBox="0 0 28 28" aria-label={`${found.length} of ${words.length} words found`}>
-              <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
-              <circle
-                cx="14" cy="14" r="11" fill="none"
-                stroke={found.length === words.length ? '#34D399' : ACCENT}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 11}`}
-                strokeDashoffset={`${2 * Math.PI * 11 * (1 - found.length / words.length)}`}
-                transform="rotate(-90 14 14)"
-                style={{ transition: 'stroke-dashoffset 0.4s cubic-bezier(0.22,1,0.36,1), stroke 0.3s' }}
-              />
-            </svg>
-            <span style={{ fontSize: '0.58rem', fontWeight: 800, color: T3, letterSpacing: '0.06em' }}>
-              {found.length}/{words.length}
-            </span>
+            <button
+              onClick={useHint}
+              disabled={hintsLeft === 0 || isComplete}
+              aria-label={`Show a word, ${hintsLeft} hints left`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 34, padding: '0 12px', borderRadius: 999,
+                background: hintsLeft > 0 ? G.tint : 'transparent',
+                border: `1.5px solid ${hintsLeft > 0 ? C.ink : C.line}`,
+                color: C.ink, fontSize: '0.8125rem', fontWeight: 700,
+                cursor: hintsLeft > 0 ? 'pointer' : 'default', opacity: hintsLeft > 0 ? 1 : 0.45,
+              }}
+            >
+              <Icon name="bulb" size={16} /> Hint · {hintsLeft}
+            </button>
           </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
             {words.map(word => {
               const fnd = found.find(f => f.word === word);
               return (
-                <span
-                  key={word}
-                  style={{
-                    position: 'relative',
-                    fontSize: 'clamp(0.65rem,2vw,0.8rem)', fontWeight: 700,
-                    color: fnd ? '#fff' : T2,
-                    background: fnd ? fnd.color : 'rgba(255,255,255,0.08)',
-                    border: `1px solid ${fnd ? 'transparent' : BDR}`,
-                    padding: '2px 9px', borderRadius: 20,
-                    opacity: fnd ? 0.88 : 1,
-                    transition: 'background 0.25s ease, color 0.2s, opacity 0.2s',
-                    letterSpacing: '0.03em',
-                    display: 'inline-block', lineHeight: 1.6,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {word}
-                  {fnd && (
-                    <span style={{
-                      position: 'absolute',
-                      top: '50%', left: '6px', right: '6px',
-                      height: 1.5,
-                      background: 'rgba(255,255,255,0.85)',
-                      transformOrigin: 'left',
-                      animation: 'strikethrough 0.38s cubic-bezier(0.22,1,0.36,1) forwards',
-                      pointerEvents: 'none',
-                    }} />
-                  )}
-                </span>
+                <li key={word} style={{
+                  position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: '0.9375rem', fontWeight: 700, letterSpacing: '0.05em',
+                  color: fnd ? C.ink3 : C.ink, transition: 'color 0.3s',
+                }}>
+                  <span aria-hidden="true" style={{
+                    width: 8, height: 8, borderRadius: 2,
+                    background: fnd ? fnd.color : 'transparent',
+                    border: `1.5px solid ${fnd ? C.ink : C.line}`,
+                  }} />
+                  <span style={{ position: 'relative' }}>
+                    {word}
+                    {fnd && (
+                      <span aria-hidden="true" style={{
+                        position: 'absolute', left: -2, right: -2, top: '52%', height: 2,
+                        background: C.ink, transformOrigin: 'left',
+                        animation: 'strike 0.35s cubic-bezier(0.22,1,0.36,1) both',
+                      }} />
+                    )}
+                  </span>
+                  {fnd && <span className="sr-only">(found)</span>}
+                </li>
               );
             })}
-          </div>
-        </div>
-
-        {/* Letter grid */}
-        <div
-          ref={gridRef}
-          style={{
-            background: CARD, border: `1px solid ${BDR}`,
-            borderRadius: 14, padding: 6,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
-            backdropFilter: 'blur(12px)',
-            userSelect: 'none', touchAction: 'none', cursor: 'crosshair',
-            flexShrink: 0,
-          }}
-          onMouseLeave={() => { if (isDragging.current) { isDragging.current = false; cancelSelection(); } }}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {grid.map((row, r) => (
-            <div key={r} style={{ display: 'flex' }}>
-              {row.map((letter, c) => {
-                const sel   = isSel(r, c);
-                const hint  = isHint(r, c);
-                const fnd   = getFound(r, c);
-                const bg    = fnd ? fnd.color : hint ? HINT_BG : sel ? SEL_BG : 'transparent';
-                const color = fnd || hint || sel ? '#fff' : T1;
-                return (
-                  <div
-                    key={c}
-                    data-row={r}
-                    data-col={c}
-                    style={{
-                      width: cellSize, height: cellSize,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: Math.round(cellSize * 0.44),
-                      fontWeight: fnd ? 800 : 600,
-                      color, backgroundColor: bg,
-                      borderRadius: 3,
-                      transition: 'background-color 0.07s, color 0.07s',
-                    }}
-                    onMouseDown={e => handleMouseDown(e, r, c)}
-                    onMouseEnter={() => handleMouseEnter(r, c)}
-                    onMouseUp={() => handleMouseUp(r, c)}
-                    onTouchStart={e => handleTouchStart(e, r, c)}
-                  >
-                    {letter}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+          </ul>
+        </section>
       </main>
 
-      {/* Victory modal */}
       {isComplete && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-        }}>
-          <div style={{
-            background: 'rgba(19,78,74,0.92)',
-            border: `1px solid ${BDR}`, borderRadius: 24, padding: '36px 28px',
-            maxWidth: 340, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(20px)',
-          }}>
-            <div style={{ fontSize: 48, marginBottom: 10 }}>🎉</div>
-            <h2 style={{ fontSize: '1.65rem', fontWeight: 900, color: T1, marginBottom: 4 }}>All Found!</h2>
-            <p style={{ color: T2, fontSize: '0.875rem', marginBottom: 20 }}>{theme} · {formatTime(seconds)}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 24 }}>
-              {found.map(f => (
-                <span key={f.word} style={{
-                  padding: '4px 12px', borderRadius: 20,
-                  background: f.color, color: '#fff',
-                  fontSize: '0.78rem', fontWeight: 700,
-                }}>{f.word}</span>
-              ))}
-            </div>
-            <button
-              onClick={() => startPuzzle(level.id)}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#059669')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = ACCENT)}
-              style={{
-                width: '100%', padding: '13px 0',
-                background: ACCENT, border: 'none', borderRadius: 10,
-                color: '#000', fontSize: '0.92rem', fontWeight: 800,
-                cursor: 'pointer', marginBottom: 8, transition: 'background 0.15s',
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >New Game →</button>
-            <button
-              onClick={() => setScreen('levels')}
-              onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-              onMouseLeave={e => (e.currentTarget.style.color = T3)}
-              style={{
-                width: '100%', padding: '8px 0', background: 'none', border: 'none',
-                color: T3, fontSize: '0.8rem', fontWeight: 600,
-                cursor: 'pointer', transition: 'color 0.15s', fontFamily: "'DM Sans', sans-serif",
-              }}
-            >Change Difficulty</button>
-          </div>
-        </div>
+        <CompletionSheet
+          game="words"
+          title="All found."
+          subtitle={`${theme} · ${level.label}`}
+          stats={[
+            { label: 'Time', value: formatTime(seconds), highlight: true },
+            { label: 'Words', value: String(words.length) },
+            { label: 'Hints used', value: String(3 - hintsLeft) },
+          ]}
+          primary={{ label: 'Next puzzle', onClick: () => startPuzzle(level.id) }}
+          secondary={[
+            { label: 'Change level', onClick: () => setScreen('levels') },
+            { label: 'All games', onClick: () => navigate('/') },
+          ]}
+        />
       )}
     </div>
   );

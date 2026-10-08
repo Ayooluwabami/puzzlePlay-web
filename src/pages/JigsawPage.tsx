@@ -1,21 +1,18 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { useJigsawStore } from '../store/jigsawStore';
 import { JIGSAW_LEVELS, IMAGE_COUNT, getImageUrl } from '../utils/jigsawData';
 import { formatTime } from '../utils/sudokuGenerator';
+import LevelScreen from '../components/ui/LevelScreen';
+import TopBar from '../components/ui/TopBar';
+import RestartButton from '../components/ui/RestartButton';
+import CompletionSheet from '../components/ui/CompletionSheet';
+import Icon from '../components/ui/Icon';
+import { useElementSize } from '../hooks/useElementSize';
+import { C, FONT, GAMES } from '../design/tokens';
 
-// Deep indigo/violet theme
-const PAGE_BG       = '#1E1B4B';   // indigo-950
-const CARD          = 'rgba(255,255,255,0.09)';
-const BOARD_BG      = 'rgba(255,255,255,0.07)';
-const TRAY_BG       = 'rgba(255,255,255,0.06)';
-const ACCENT        = '#A78BFA';   // violet-400
-const ACCENT_DIM    = 'rgba(167,139,250,0.14)';
-const ACCENT_BORDER = 'rgba(167,139,250,0.32)';
-const BDR           = 'rgba(255,255,255,0.14)';
-const T1            = '#FFFFFF';
-const T2            = 'rgba(255,255,255,0.70)';
-const T3            = 'rgba(255,255,255,0.55)';
+const G = GAMES.jigsaw;
 
 // ─── Jigsaw shape helpers ─────────────────────────────────────────────────────
 
@@ -79,14 +76,11 @@ interface PieceSVGProps {
   imageUrl: string;
   cellSize: number;
   edges: { top: EdgeType; right: EdgeType; bottom: EdgeType; left: EdgeType };
-  glowColor?: string;
-  style?: React.CSSProperties;
-  onMouseDown?: (e: React.MouseEvent) => void;
-  onTouchStart?: (e: React.TouchEvent) => void;
-  onClick?: (e: React.MouseEvent) => void;
+  correct?: boolean;
+  selected?: boolean;
 }
 
-function PieceSVG({ pieceId, gridSize, imageUrl, cellSize: s, edges, glowColor, style, onMouseDown, onTouchStart, onClick }: PieceSVGProps) {
+function PieceSVG({ pieceId, gridSize, imageUrl, cellSize: s, edges, correct, selected }: PieceSVGProps) {
   const pad = Math.round(s * 0.32);
   const total = s + 2 * pad;
   const row = Math.floor(pieceId / gridSize);
@@ -95,34 +89,21 @@ function PieceSVG({ pieceId, gridSize, imageUrl, cellSize: s, edges, glowColor, 
   const path = jigsawPath(s, pad, edges);
 
   return (
-    <svg
-      width={total} height={total}
-      viewBox={`0 0 ${total} ${total}`}
-      style={{ display: 'block', overflow: 'visible', cursor: onMouseDown ? 'grab' : onClick ? 'pointer' : 'default', ...style }}
-      onMouseDown={onMouseDown}
-      onTouchStart={onTouchStart}
-      onClick={onClick}
-    >
+    <svg width={total} height={total} viewBox={`0 0 ${total} ${total}`} style={{ display: 'block', overflow: 'visible' }}>
       <defs>
         <clipPath id={uid}><path d={path} /></clipPath>
-        {glowColor && (
-          <filter id={`gf-${uid}`}>
-            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={glowColor} floodOpacity="0.9" />
-          </filter>
-        )}
       </defs>
       <image
         href={imageUrl}
         x={pad - col * s} y={pad - row * s}
         width={s * gridSize} height={s * gridSize}
         clipPath={`url(#${uid})`}
-        style={{ userSelect: 'none' }}
+        preserveAspectRatio="none"
       />
       <path
         d={path} fill="none"
-        stroke={glowColor ?? 'rgba(255,255,255,0.25)'}
-        strokeWidth={glowColor ? 2.5 : 1.2}
-        filter={glowColor ? `url(#gf-${uid})` : undefined}
+        stroke={selected ? C.ink : correct ? 'none' : 'rgba(23,23,26,0.45)'}
+        strokeWidth={selected ? 3 : 1.25}
         style={{ pointerEvents: 'none' }}
       />
     </svg>
@@ -136,16 +117,8 @@ export default function JigsawPage() {
   const [screen, setScreen] = useState<'levels' | 'game'>('levels');
   const [previewSeed, setPreviewSeed] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
-
-  const [dims, setDims] = useState(() => ({
-    vw: typeof window !== 'undefined' ? window.innerWidth : 390,
-    vh: typeof window !== 'undefined' ? window.innerHeight : 844,
-  }));
-  useEffect(() => {
-    const handle = () => setDims({ vw: window.innerWidth, vh: window.innerHeight });
-    window.addEventListener('resize', handle);
-    return () => window.removeEventListener('resize', handle);
-  }, []);
+  const [mainRef, area] = useElementSize<HTMLDivElement>();
+  const [trayRef, trayArea] = useElementSize<HTMLDivElement>();
 
   const {
     level, imageUrl, imageSeed, tray, board, selectedTrayId,
@@ -172,7 +145,6 @@ export default function JigsawPage() {
   const [dropTarget, setDropTarget] = useState<{ row: number; col: number } | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Track image load for shimmer skeleton
   useEffect(() => {
     if (!imageUrl) return;
     setImageLoaded(false);
@@ -182,15 +154,23 @@ export default function JigsawPage() {
     img.src = imageUrl;
   }, [imageUrl]);
 
+  const slotAt = (x: number, y: number) => {
+    const el = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-row]') as HTMLElement | null;
+    return el?.dataset.row !== undefined && el?.dataset.col !== undefined
+      ? { row: Number(el.dataset.row), col: Number(el.dataset.col) } : null;
+  };
+
   // Mouse drag
   useEffect(() => {
-    const move = (e: MouseEvent) => { if (drag) setDrag(d => d ? { ...d, x: e.clientX, y: e.clientY } : null); };
+    const move = (e: MouseEvent) => {
+      if (!drag) return;
+      setDrag(d => d ? { ...d, x: e.clientX, y: e.clientY } : null);
+      setDropTarget(slotAt(e.clientX, e.clientY));
+    };
     const up = (e: MouseEvent) => {
       if (!drag) return;
-      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-row]') as HTMLElement | null;
-      if (el?.dataset.row !== undefined && el?.dataset.col !== undefined) {
-        placeOnBoardById(drag.pieceId, Number(el.dataset.row), Number(el.dataset.col));
-      }
+      const slot = slotAt(e.clientX, e.clientY);
+      if (slot) placeOnBoardById(drag.pieceId, slot.row, slot.col);
       setDrag(null); setDropTarget(null);
     };
     window.addEventListener('mousemove', move);
@@ -198,461 +178,365 @@ export default function JigsawPage() {
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
   }, [drag, placeOnBoardById]);
 
-  // Touch drag — enables piece dragging on mobile phones
+  // Touch drag. A touch on a tray piece is only "pending" until it moves:
+  // moving toward the board lifts the piece; moving along the tray scrolls it.
+  const pendingRef = useRef<{ id: number; x: number; y: number } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  const wideRef = useRef(false);
+
   useEffect(() => {
     const touchMove = (e: TouchEvent) => {
-      if (!drag) return;
-      e.preventDefault();
-      const touch = e.touches[0];
-      setDrag(d => d ? { ...d, x: touch.clientX, y: touch.clientY } : null);
-      const el = (document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement)?.closest('[data-row]') as HTMLElement | null;
-      if (el?.dataset.row !== undefined && el?.dataset.col !== undefined) {
-        setDropTarget({ row: Number(el.dataset.row), col: Number(el.dataset.col) });
-      } else {
-        setDropTarget(null);
+      const t = e.touches[0];
+      const p = pendingRef.current;
+      if (!dragRef.current && p) {
+        const dx = Math.abs(t.clientX - p.x), dy = Math.abs(t.clientY - p.y);
+        if (Math.hypot(dx, dy) < 8) return;
+        pendingRef.current = null;
+        const towardBoard = wideRef.current ? dx > dy : dy > dx * 0.8;
+        if (!towardBoard) return;                    // let the tray scroll
+        e.preventDefault();
+        setDrag({ pieceId: p.id, x: t.clientX, y: t.clientY });
+        return;
       }
+      if (!dragRef.current) return;
+      e.preventDefault();
+      setDrag(d => d ? { ...d, x: t.clientX, y: t.clientY } : null);
+      setDropTarget(slotAt(t.clientX, t.clientY));
     };
     const touchUp = (e: TouchEvent) => {
-      if (!drag) return;
-      const touch = e.changedTouches[0];
-      const el = (document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement)?.closest('[data-row]') as HTMLElement | null;
-      if (el?.dataset.row !== undefined && el?.dataset.col !== undefined) {
-        placeOnBoardById(drag.pieceId, Number(el.dataset.row), Number(el.dataset.col));
-      }
+      pendingRef.current = null;
+      const d = dragRef.current;
+      if (!d) return;
+      const t = e.changedTouches[0];
+      const slot = slotAt(t.clientX, t.clientY);
+      if (slot) placeOnBoardById(d.pieceId, slot.row, slot.col);
       setDrag(null); setDropTarget(null);
     };
     window.addEventListener('touchmove', touchMove, { passive: false });
     window.addEventListener('touchend', touchUp);
+    window.addEventListener('touchcancel', touchUp);
     return () => {
       window.removeEventListener('touchmove', touchMove);
       window.removeEventListener('touchend', touchUp);
+      window.removeEventListener('touchcancel', touchUp);
     };
-  }, [drag, placeOnBoardById]);
+  }, [placeOnBoardById]);
 
-  // Responsive sizing — fits content in viewport
-  const { vw, vh } = dims;
-  const isMobile  = vw < 700;
-  const HEADER_H  = 50;
-  const GAP       = isMobile ? 8 : 20;
-  const PADDING   = isMobile ? 10 : 16;
-
-  const maxBoardH = isMobile ? (vh - HEADER_H - PADDING * 2) * 0.55 : vh - HEADER_H - PADDING * 2;
-  const maxBoardW = isMobile ? vw - 20 : vw * 0.52;
-  const maxBoard  = Math.min(maxBoardH, maxBoardW, 560);
-  const cellSize  = Math.max(isMobile ? 18 : 26, Math.floor(maxBoard / level.gridSize));
-  const boardPx   = cellSize * level.gridSize;
-  const pad       = Math.round(cellSize * 0.32);
-
-  const trayColumns  = Math.min(level.gridSize, isMobile ? 5 : 7);
-  const trayWidth    = isMobile ? Math.min(vw - 20, boardPx) : 280;
-  const trayCellSize = Math.max(14, Math.min(isMobile ? 46 : 58, Math.floor(trayWidth / trayColumns) - 6));
-  const trayMaxH     = isMobile
-    ? Math.max(80, vh - HEADER_H - boardPx - PADDING * 2 - GAP - 36)
-    : vh - HEADER_H - PADDING * 2 - 40;
-
-  const placedCount = board.flat().filter(Boolean).length;
-
-  // ─── Levels screen ──────────────────────────────────────────────────────────
+  // ─── Levels ─────────────────────────────────────────────────────────────────
   if (screen === 'levels') {
     return (
-      <div style={{
-        minHeight: '100dvh', background: PAGE_BG,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: 'clamp(24px,5vh,48px) 16px', position: 'relative',
-      }}>
-        <div className="dot-grid" style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none' }} />
-        <div style={{
-          position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)',
-          width: 600, height: 400, borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(252,211,77,0.1) 0%, transparent 65%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ width: '100%', maxWidth: 480, position: 'relative', zIndex: 10 }}>
-          <button
-            onClick={() => navigate('/')}
-            onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = T3)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, color: T3,
-              fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-              background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 28px', transition: 'color 0.15s',
-            }}
-          >← All Games</button>
-
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 64, height: 64, borderRadius: 18,
-              background: ACCENT_DIM, border: `1px solid ${ACCENT_BORDER}`,
-              fontSize: 28, marginBottom: 16,
-            }}>🧩</div>
-            <h1 style={{ fontSize: '2.4rem', lineHeight: 1.1, marginBottom: 8, fontWeight: 900, color: T1 }}>Jigsaw</h1>
-            <p style={{ color: T2, fontSize: '0.875rem', lineHeight: 1.65 }}>Piece together beautiful photographs</p>
-          </div>
-
-          {/* Photo picker */}
-          <div style={{ marginBottom: 22 }}>
-            <p style={{ fontSize: '0.62rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-              Choose Photo ({IMAGE_COUNT} available)
-            </p>
-            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'thin' }}>
-              {Array.from({ length: IMAGE_COUNT }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPreviewSeed(i)}
-                  style={{
-                    flexShrink: 0, padding: 0, border: 'none', borderRadius: 8,
-                    overflow: 'hidden', cursor: 'pointer',
-                    outline: previewSeed === i ? `2.5px solid ${ACCENT}` : `2px solid ${BDR}`,
-                    outlineOffset: 2, transition: 'outline 0.15s',
-                  }}
-                >
-                  <img src={getImageUrl(i, 48)} alt="" style={{ width: 44, height: 44, display: 'block' }} />
-                </button>
-              ))}
+      <LevelScreen
+        game="jigsaw"
+        onBack={() => navigate('/')}
+        levels={JIGSAW_LEVELS.map(l => ({ id: l.id, label: l.label, meta: `${l.gridSize * l.gridSize} pieces · ${l.description.split('—')[1]?.trim() ?? ''}` }))}
+        onPick={id => { startPuzzle(id, previewSeed); setScreen('game'); }}
+        extra={
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '0 2px 10px' }}>
+              <p className="eyebrow">Choose a photograph</p>
+              <span className="tnum" style={{ fontSize: '0.75rem', fontWeight: 700, color: C.ink3 }}>{previewSeed + 1} / {IMAGE_COUNT}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <div style={{
+                width: 112, height: 112, flexShrink: 0, borderRadius: 18, overflow: 'hidden',
+                border: `1.5px solid ${C.ink}`, boxShadow: `0 4px 0 ${C.ink}`, background: C.paperDeep,
+              }}>
+                <img key={previewSeed} src={getImageUrl(previewSeed, 240)} alt="Selected photograph"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', animation: 'fadeUp 0.3s ease' }} />
+              </div>
+              <div className="no-scrollbar" style={{
+                display: 'grid', gridTemplateRows: 'repeat(2, 50px)', gridAutoFlow: 'column', gridAutoColumns: '50px',
+                gap: 8, overflowX: 'auto', padding: '4px 4px 6px', flex: 1, minWidth: 0,
+              }}>
+                {Array.from({ length: IMAGE_COUNT }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPreviewSeed(i)}
+                    aria-label={`Photograph ${i + 1}`}
+                    aria-pressed={previewSeed === i}
+                    style={{
+                      padding: 0, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+                      border: previewSeed === i ? `2.5px solid ${C.ink}` : `1.5px solid ${C.line}`,
+                      transform: previewSeed === i ? 'scale(1.06)' : 'none',
+                      transition: 'transform 0.15s, border-color 0.15s', background: C.paperDeep,
+                    }}
+                  >
+                    <img src={getImageUrl(i, 100)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-
-          <p style={{ fontSize: '0.62rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Choose Difficulty
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {JIGSAW_LEVELS.map(lvl => (
-              <button
-                key={lvl.id}
-                onClick={() => { startPuzzle(lvl.id, previewSeed); setScreen('game'); }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.15)';
-                  (e.currentTarget as HTMLElement).style.borderColor = ACCENT_BORDER;
-                  (e.currentTarget as HTMLElement).style.transform = 'translateX(4px)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = CARD;
-                  (e.currentTarget as HTMLElement).style.borderColor = BDR;
-                  (e.currentTarget as HTMLElement).style.transform = 'translateX(0)';
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', background: CARD, border: `1px solid ${BDR}`,
-                  borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                  transition: 'all 0.18s ease', backdropFilter: 'blur(8px)',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{
-                      fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.07em',
-                      padding: '2px 8px', borderRadius: 100,
-                      background: ACCENT_DIM, color: ACCENT, border: `1px solid ${ACCENT_BORDER}`, textTransform: 'uppercase',
-                    }}>{lvl.label}</span>
-                    <span style={{ fontSize: '0.72rem', color: T3 }}>{lvl.gridSize}×{lvl.gridSize} = {lvl.gridSize * lvl.gridSize} pieces</span>
-                  </div>
-                  <span style={{ fontSize: '0.8rem', color: T2 }}>{lvl.description}</span>
-                </div>
-                <span style={{ color: ACCENT, fontSize: '1rem', fontWeight: 700, marginLeft: 12 }}>›</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
-  // ─── Game screen — fills viewport ──────────────────────────────────────────
+  // ─── Game ───────────────────────────────────────────────────────────────────
+  const n = level.gridSize;
+  const wide = area.width >= 760;
+  const TRAY_MIN = 150;
+  const boardMax = wide
+    ? Math.min(area.height, area.width - 340 - 32, 640)
+    : Math.min(area.width, area.height - TRAY_MIN - 14, 560);
+  const cellSize = Math.max(14, Math.floor((boardMax - 4) / n));
+  const boardPx  = cellSize * n;
+  const pad      = Math.round(cellSize * 0.32);
+
+  wideRef.current = wide;
+  const trayWidth = wide ? 340 : Math.max(boardPx + 4, Math.min(area.width, 520));
+  // Desktop: wrapping grid, 5 across. Phone: a sideways strip, 2 rows tall.
+  const trayCellSize = wide
+    ? Math.max(18, Math.min(52, Math.floor((trayWidth - 24) / 5 / 1.64)))
+    : Math.max(18, Math.min(72, cellSize, Math.floor(((trayArea.height - 16) / 2 - 2) / 1.64)));
+  const trayPad  = Math.round(trayCellSize * 0.32);
+  const trayBox  = trayCellSize + 2 * trayPad;
+  const trayRows = wide ? 0 : Math.max(1, Math.floor((trayArea.height - 16) / (trayBox + 2)));
+
+  const placedCount = board.flat().filter(Boolean).length;
+  const total = n * n;
+
   return (
     <div style={{
-      height: '100dvh', background: PAGE_BG,
-      display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', touchAction: drag ? 'none' : 'auto',
+      height: '100dvh', background: C.paper,
+      paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      touchAction: drag ? 'none' : 'auto',
     }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', flexShrink: 0,
-        background: 'rgba(0,0,0,0.25)', borderBottom: `1px solid ${BDR}`,
-        backdropFilter: 'blur(16px)', flexWrap: 'wrap', gap: 8,
+      <TopBar
+        title="Jigsaw"
+        meta={<>{level.label} · {formatTime(seconds)}</>}
+        onBack={() => setScreen('levels')}
+        backLabel="Back to levels"
+        right={<RestartButton onConfirm={() => newGame(level.id)} needsConfirm={placedCount > 0 && !isComplete} label="New photograph" />}
+        progress={board.flat().filter(c => c?.correct).length / total}
+        progressColor={isComplete ? C.success : G.color}
+      />
+
+      <main ref={mainRef} style={{
+        flex: 1, minHeight: 0, width: '100%', maxWidth: 1100, margin: '0 auto',
+        display: 'flex', flexDirection: wide ? 'row' : 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: wide ? 32 : 14, padding: wide ? '24px 32px' : '14px 16px 12px',
       }}>
-        <button
-          onClick={() => setScreen('levels')}
-          onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-          onMouseLeave={e => (e.currentTarget.style.color = T3)}
-          style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
-        >← Levels</button>
+        {area.width > 0 && (
+          <>
+            {/* Board */}
+            <div style={{
+              position: 'relative', width: boardPx + 4, height: boardPx + 4, flexShrink: 0,
+              background: C.surface, border: `2px solid ${C.ink}`, borderRadius: 10,
+              boxShadow: `0 4px 0 ${C.ink}`,
+            }}>
+              {/* Slot grid */}
+              <svg width={boardPx} height={boardPx} aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+                {Array.from({ length: n - 1 }, (_, i) => (
+                  <g key={i} stroke={C.line} strokeWidth="1" strokeDasharray="3 4">
+                    <line x1={(i + 1) * cellSize} y1="0" x2={(i + 1) * cellSize} y2={boardPx} />
+                    <line x1="0" y1={(i + 1) * cellSize} x2={boardPx} y2={(i + 1) * cellSize} />
+                  </g>
+                ))}
+              </svg>
+              {!imageLoaded && <div className="shimmer" style={{ position: 'absolute', inset: 0, borderRadius: 8, zIndex: 10, pointerEvents: 'none' }} />}
+              {Array.from({ length: n }, (_, row) =>
+                Array.from({ length: n }, (_, col) => {
+                  const cell = board[row]?.[col];
+                  const isHintSlot = hintCell?.row === row && hintCell?.col === col;
+                  const isDropHere = dropTarget?.row === row && dropTarget?.col === col;
+                  const isFlashing = cell ? flashCorrect.includes(cell.pieceId) : false;
+                  return (
+                    <div
+                      key={`${row}-${col}`}
+                      data-row={row}
+                      data-col={col}
+                      className={isFlashing ? 'piece-correct-flash' : undefined}
+                      onClick={() => {
+                        if (drag) return;
+                        if (selectedTrayId !== null) placeOnBoard(row, col);
+                        else if (cell) returnToTray(row, col);
+                      }}
+                      style={{
+                        position: 'absolute', left: col * cellSize, top: row * cellSize,
+                        width: cellSize, height: cellSize,
+                        background: isHintSlot ? G.tint2 : isDropHere ? G.tint : 'transparent',
+                        outline: isHintSlot ? `2.5px solid ${C.ink}` : isDropHere ? `2px solid ${G.color}` : 'none',
+                        outlineOffset: -2,
+                        animation: isHintSlot ? 'hintPulse 1s ease-in-out infinite' : undefined,
+                        cursor: cell || selectedTrayId !== null ? 'pointer' : 'default',
+                        zIndex: cell ? (cell.correct ? 1 : 2) : 0,
+                        transition: 'background-color 0.12s',
+                      }}
+                    >
+                      {cell && (
+                        <div style={{ position: 'absolute', left: -pad, top: -pad, pointerEvents: 'none' }}>
+                          <PieceSVG
+                            pieceId={cell.pieceId} gridSize={n}
+                            imageUrl={imageUrl} cellSize={cellSize}
+                            edges={getEdges(cell.pieceId)} correct={cell.correct}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={() => setShowPreview(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-              borderRadius: 20, background: ACCENT_DIM, border: `1px solid ${ACCENT_BORDER}`,
-              color: ACCENT, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-            }}
-          >👁 Preview</button>
-          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: T1, fontVariantNumeric: 'tabular-nums' }}>
-            {formatTime(seconds)}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={useHint}
-            disabled={hintsLeft === 0}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20,
-              background: hintsLeft > 0 ? ACCENT_DIM : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${hintsLeft > 0 ? ACCENT_BORDER : BDR}`,
-              color: hintsLeft > 0 ? ACCENT : T3,
-              fontSize: '0.7rem', fontWeight: 700, cursor: hintsLeft > 0 ? 'pointer' : 'not-allowed',
-            }}
-          >💡 {hintsLeft}</button>
-          <button
-            onClick={() => newGame(level.id)}
-            onMouseEnter={e => (e.currentTarget.style.color = ACCENT)}
-            onMouseLeave={e => (e.currentTarget.style.color = T3)}
-            style={{ color: T3, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.15s' }}
-          >New</button>
-        </div>
-      </div>
-
-      <main style={{
-        flex: 1, display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'center' : 'flex-start',
-        justifyContent: 'center',
-        gap: GAP, padding: `${PADDING}px ${isMobile ? 10 : 12}px`,
-        overflow: 'hidden',
-      }}>
-        {/* Board */}
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <p style={{ fontSize: '0.58rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Board</p>
-            <p style={{ fontSize: '0.62rem', color: T2, fontWeight: 600 }}>
-              {placedCount}/{level.gridSize * level.gridSize} · tap to return
-            </p>
-          </div>
-          <div style={{
-            position: 'relative', width: boardPx, height: boardPx,
-            background: BOARD_BG, borderRadius: 12,
-            border: `1px solid ${BDR}`,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(8px)',
-          }}>
-            {/* Shimmer skeleton while image loads */}
-            {!imageLoaded && (
-              <div
-                className="shimmer"
-                style={{
-                  position: 'absolute', inset: 0, borderRadius: 12,
-                  zIndex: 10, pointerEvents: 'none',
-                }}
-              />
-            )}
-            {Array.from({ length: level.gridSize }, (_, row) =>
-              Array.from({ length: level.gridSize }, (_, col) => {
-                const cell = board[row]?.[col];
-                const isHintSlot = hintCell?.row === row && hintCell?.col === col;
-                const isDropHere = dropTarget?.row === row && dropTarget?.col === col;
-                const isFlashing = cell ? flashCorrect.includes(cell.pieceId) : false;
-                return (
-                  <div
-                    key={`${row}-${col}`}
-                    data-row={row}
-                    data-col={col}
-                    className={isFlashing ? 'piece-correct-flash' : undefined}
-                    onMouseEnter={() => drag && setDropTarget({ row, col })}
-                    onMouseLeave={() => drag && setDropTarget(null)}
-                    onClick={() => {
-                      if (drag) return;
-                      if (selectedTrayId !== null) placeOnBoard(row, col);
-                      else if (cell) returnToTray(row, col);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left: col * cellSize, top: row * cellSize,
-                      width: cellSize, height: cellSize,
-                      border: isHintSlot
-                        ? `2px solid ${ACCENT}`
-                        : isDropHere
-                        ? '2px dashed rgba(147,197,253,0.6)'
-                        : cell?.correct
-                        ? '1px solid rgba(52,211,153,0.4)'
-                        : '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 2,
-                      backgroundColor: isHintSlot ? ACCENT_DIM : cell ? 'transparent' : 'rgba(255,255,255,0.03)',
-                      boxShadow: isHintSlot ? `0 0 14px ${ACCENT_BORDER}` : 'none',
-                      transition: 'border-color 0.12s',
-                      cursor: cell ? 'pointer' : 'default',
-                      overflow: 'visible', zIndex: cell ? 1 : 0,
-                    }}
-                  >
-                    {cell && (
-                      <div style={{ position: 'absolute', left: -pad, top: -pad, zIndex: 2, pointerEvents: 'none' }}>
-                        <PieceSVG
-                          pieceId={cell.pieceId} gridSize={level.gridSize}
-                          imageUrl={imageUrl} cellSize={cellSize}
-                          edges={getEdges(cell.pieceId)}
-                          glowColor={cell.correct ? 'rgba(52,211,153,0.7)' : undefined}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Tray */}
-        <div style={{ maxWidth: isMobile ? boardPx : 300, width: '100%', flexShrink: 0 }}>
-          <p style={{ fontSize: '0.58rem', fontWeight: 700, color: T3, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
-            Pieces ({tray.length}) · {isMobile ? 'touch & drag' : 'drag or click'}
-          </p>
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 6, alignContent: 'flex-start',
-            background: TRAY_BG, padding: 8, borderRadius: 12,
-            border: `1px solid ${BDR}`,
-            backdropFilter: 'blur(8px)',
-            minHeight: 60, maxHeight: trayMaxH, overflowY: 'auto',
-            touchAction: 'none',
-          }}>
-            {tray.map(id => {
-              const isSel = selectedTrayId === id;
-              const isDragged = drag?.pieceId === id;
-              const trayPad = Math.round(trayCellSize * 0.32);
-              return (
-                <div
-                  key={id}
-                  style={{
-                    outline: isSel ? `2px solid ${ACCENT}` : '2px solid transparent',
-                    borderRadius: 6, transition: 'outline 0.12s, transform 0.12s, opacity 0.12s',
-                    transform: isSel ? 'scale(1.07)' : 'scale(1)',
-                    cursor: 'grab', opacity: isDragged ? 0.2 : 1,
-                    width: trayCellSize + 2 * trayPad,
-                    height: trayCellSize + 2 * trayPad,
-                  }}
-                  onMouseDown={e => { e.preventDefault(); setDrag({ pieceId: id, x: e.clientX, y: e.clientY }); }}
-                  onTouchStart={e => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    setDrag({ pieceId: id, x: touch.clientX, y: touch.clientY });
-                  }}
-                  onClick={() => selectTrayPiece(id)}
-                >
-                  <PieceSVG
-                    pieceId={id} gridSize={level.gridSize}
-                    imageUrl={imageUrl} cellSize={trayCellSize}
-                    edges={getEdges(id)}
-                  />
-                </div>
-              );
-            })}
-            {tray.length === 0 && (
-              <p style={{ color: ACCENT, fontSize: '0.8rem', width: '100%', textAlign: 'center', padding: '16px 0', fontWeight: 600 }}>
-                All pieces placed!
-              </p>
-            )}
-          </div>
-          {selectedTrayId !== null && !drag && (
-            <p style={{ fontSize: '0.7rem', color: ACCENT, textAlign: 'center', marginTop: 6, fontWeight: 600 }}>
-              Tap a board slot to place
-            </p>
-          )}
-        </div>
+            {/* Tray */}
+            <section style={{
+              width: trayWidth, maxWidth: '100%', alignSelf: wide ? 'center' : 'stretch',
+              flex: wide ? undefined : 1, minHeight: 0, maxHeight: wide ? boardPx : undefined,
+              display: 'flex', flexDirection: 'column', margin: wide ? undefined : '0 auto',
+              background: C.surface, border: `1.5px solid ${C.ink}`, borderRadius: 18, overflow: 'hidden',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                padding: '10px 12px 10px 14px', borderBottom: `1px solid ${C.line}`, flexShrink: 0,
+              }}>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontFamily: FONT.display, fontSize: '1.0625rem', fontWeight: 700 }}>Pieces</span>
+                  <span className="tnum" style={{ fontSize: '0.8125rem', fontWeight: 700, color: C.ink3 }}>{placedCount}/{total} placed</span>
+                </span>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => setShowPreview(true)} aria-label="Show the full photograph" style={chip(true)}>
+                    <Icon name="eye" size={16} /> Peek
+                  </button>
+                  <button onClick={useHint} disabled={hintsLeft === 0 || isComplete} aria-label={`Hint, ${hintsLeft} left`} style={chip(hintsLeft > 0)}>
+                    <Icon name="bulb" size={16} /> {hintsLeft}
+                  </button>
+                </span>
+              </div>
+              <div ref={trayRef} className={wide ? undefined : 'no-scrollbar'} style={wide ? {
+                flex: 1, minHeight: 0, overflowY: 'auto', touchAction: drag ? 'none' : 'pan-y',
+                display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', justifyContent: 'center',
+                gap: 2, padding: 8,
+              } : {
+                flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', touchAction: drag ? 'none' : 'pan-x',
+                display: 'grid', gridAutoFlow: 'column', gridTemplateRows: `repeat(${trayRows}, ${trayBox}px)`,
+                gridAutoColumns: `${trayBox}px`, alignContent: 'center',
+                gap: 2, padding: 8,
+              }}>
+                {tray.map(id => {
+                  const isSel = selectedTrayId === id;
+                  const isDragged = drag?.pieceId === id;
+                  return (
+                    <div
+                      key={id}
+                      style={{
+                        width: trayBox, height: trayBox,
+                        transform: isSel ? 'scale(1.1)' : 'scale(1)',
+                        transition: 'transform 0.15s cubic-bezier(0.22,1,0.36,1), opacity 0.12s',
+                        cursor: 'grab', opacity: isDragged ? 0.15 : 1,
+                        filter: isSel ? 'drop-shadow(0 4px 0 rgba(23,23,26,0.9))' : 'none',
+                      }}
+                      onMouseDown={e => { e.preventDefault(); setDrag({ pieceId: id, x: e.clientX, y: e.clientY }); }}
+                      onTouchStart={e => {
+                        const t = e.touches[0];
+                        pendingRef.current = { id, x: t.clientX, y: t.clientY };
+                      }}
+                      onClick={() => selectTrayPiece(id)}
+                    >
+                      <PieceSVG
+                        pieceId={id} gridSize={n}
+                        imageUrl={imageUrl} cellSize={trayCellSize}
+                        edges={getEdges(id)} selected={isSel}
+                      />
+                    </div>
+                  );
+                })}
+                {tray.length === 0 && !isComplete && (
+                  <p style={{ gridRow: '1 / -1', whiteSpace: 'normal', width: wide ? '100%' : 260, color: C.ink2, fontSize: '0.875rem', fontWeight: 600, padding: '18px 0', textAlign: 'center' }}>
+                    All pieces are on the board. Tap a piece to lift it back.
+                  </p>
+                )}
+              </div>
+              <div style={{
+                flexShrink: 0, padding: '8px 14px', borderTop: `1px solid ${C.line}`,
+                fontSize: '0.75rem', fontWeight: 600, color: C.ink3, textAlign: 'center',
+              }}>
+                {selectedTrayId !== null ? 'Now tap a slot on the board' : wide ? 'Drag a piece onto the board, or tap it then tap a slot' : 'Swipe to browse · drag a piece up onto the board'}
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       {/* Floating drag ghost */}
-      {drag && (() => {
-        const gPad = Math.round(trayCellSize * 0.32);
-        const gTotal = trayCellSize + 2 * gPad;
-        return (
-          <div style={{
-            position: 'fixed',
-            left: drag.x - gTotal / 2, top: drag.y - gTotal / 2,
-            pointerEvents: 'none', zIndex: 100,
-            opacity: 0.9, transform: 'scale(1.1)',
-            filter: 'drop-shadow(0 6px 20px rgba(0,0,0,0.4))',
-          }}>
-            <PieceSVG
-              pieceId={drag.pieceId} gridSize={level.gridSize}
-              imageUrl={imageUrl} cellSize={trayCellSize}
-              edges={getEdges(drag.pieceId)}
-            />
-          </div>
-        );
-      })()}
-
-      {/* Preview modal */}
-      {showPreview && (
-        <div onClick={() => setShowPreview(false)} style={{
-          position: 'fixed', inset: 0, zIndex: 60,
-          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      {drag && (
+        <div style={{
+          position: 'fixed',
+          left: drag.x - (cellSize + 2 * pad) / 2, top: drag.y - (cellSize + 2 * pad) / 2 - 24,
+          pointerEvents: 'none', zIndex: 100,
+          filter: 'drop-shadow(0 8px 0 rgba(23,23,26,0.35))',
         }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'rgba(124,45,18,0.95)', border: `1px solid ${ACCENT_BORDER}`,
-            borderRadius: 20, padding: 20, maxWidth: 420, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
-            backdropFilter: 'blur(20px)',
-          }}>
-            <p style={{ fontSize: '0.63rem', fontWeight: 800, letterSpacing: '0.1em', color: ACCENT, textTransform: 'uppercase', marginBottom: 12 }}>
-              Complete Image
-            </p>
-            <img src={imageUrl} alt="Complete puzzle" style={{ width: '100%', borderRadius: 12, display: 'block', border: `1px solid ${BDR}` }} />
-            <button
-              onClick={() => setShowPreview(false)}
-              style={{
-                marginTop: 14, padding: '10px 32px',
-                background: ACCENT_DIM, border: `1px solid ${ACCENT_BORDER}`,
-                borderRadius: 10, color: ACCENT, fontSize: '0.875rem', fontWeight: 700,
-                cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-              }}
-            >Got it</button>
-          </div>
+          <PieceSVG pieceId={drag.pieceId} gridSize={n} imageUrl={imageUrl} cellSize={cellSize} edges={getEdges(drag.pieceId)} />
         </div>
       )}
 
-      {/* Victory modal */}
-      {isComplete && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-        }}>
-          <div style={{
-            background: 'rgba(124,45,18,0.95)',
-            border: `1px solid ${BDR}`, borderRadius: 24, padding: '32px 28px',
-            maxWidth: 320, width: '100%', textAlign: 'center',
-            animation: 'fadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(20px)',
-          }}>
-            <div style={{ fontSize: 46, marginBottom: 10 }}>🧩</div>
-            <h2 style={{ fontSize: '1.65rem', fontWeight: 900, color: T1, marginBottom: 4 }}>Complete!</h2>
-            <p style={{ color: T2, fontSize: '0.875rem', marginBottom: 16 }}>{level.label} · {formatTime(seconds)}</p>
-            <img src={imageUrl} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 18, border: `1px solid ${BDR}` }} />
-            <button
-              onClick={() => newGame(level.id)}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#F59E0B')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = ACCENT)}
+      {/* Peek at the full photograph */}
+      <AnimatePresence>
+        {showPreview && (
+          <motion.div
+            key="peek"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setShowPreview(false)}
+            role="dialog" aria-modal="true" aria-label="Full photograph"
+            style={{
+              position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,23,26,0.6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 26 }}
               style={{
-                width: '100%', padding: '12px 0',
-                background: ACCENT, border: 'none', borderRadius: 10,
-                color: '#000', fontSize: '0.92rem', fontWeight: 800,
-                cursor: 'pointer', marginBottom: 8, transition: 'background 0.15s',
-                fontFamily: "'DM Sans', sans-serif",
+                width: '100%', maxWidth: 420, background: C.surface, borderRadius: 22,
+                border: `1.5px solid ${C.ink}`, boxShadow: `0 5px 0 ${C.ink}`, padding: 12,
               }}
-            >New Game</button>
-            <button onClick={() => startPuzzle(level.id, imageSeed)} onMouseEnter={e => (e.currentTarget.style.color = ACCENT)} onMouseLeave={e => (e.currentTarget.style.color = T3)}
-              style={{ width: '100%', padding: '8px 0', background: 'none', border: 'none', color: T3, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s', fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>
-              Play Again (same photo)
-            </button>
-            <button onClick={() => setScreen('levels')} onMouseEnter={e => (e.currentTarget.style.color = ACCENT)} onMouseLeave={e => (e.currentTarget.style.color = T3)}
-              style={{ width: '100%', padding: '8px 0', background: 'none', border: 'none', color: T3, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'color 0.15s', fontFamily: "'DM Sans', sans-serif" }}>
-              Change Difficulty
-            </button>
-          </div>
-        </div>
+            >
+              <img src={imageUrl} alt="The finished puzzle" style={{ width: '100%', aspectRatio: '1', borderRadius: 12, display: 'block', objectFit: 'cover' }} />
+              <button className="btn btn-ink press" style={{ width: '100%', marginTop: 12 }} onClick={() => setShowPreview(false)}>
+                <Icon name="close" size={18} /> Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {isComplete && (
+        <CompletionSheet
+          game="jigsaw"
+          title="Complete."
+          subtitle={`${level.label} · ${total} pieces`}
+          media={
+            <img src={imageUrl} alt="Your finished puzzle" style={{
+              width: '100%', aspectRatio: '1', maxHeight: 260, objectFit: 'cover', display: 'block',
+              borderRadius: 16, border: `1.5px solid ${C.ink}`,
+            }} />
+          }
+          stats={[
+            { label: 'Time', value: formatTime(seconds), highlight: true },
+            { label: 'Pieces', value: String(total) },
+            { label: 'Hints used', value: String(3 - hintsLeft) },
+          ]}
+          primary={{ label: 'Next photograph', onClick: () => newGame(level.id) }}
+          secondary={[
+            { label: 'Play again', onClick: () => startPuzzle(level.id, imageSeed) },
+            { label: 'Change level', onClick: () => setScreen('levels') },
+          ]}
+        />
       )}
     </div>
   );
+}
+
+function chip(enabled: boolean): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    height: 32, padding: '0 11px', borderRadius: 999,
+    background: enabled ? G.tint : 'transparent',
+    border: `1.5px solid ${enabled ? C.ink : C.line}`,
+    color: C.ink, fontSize: '0.8125rem', fontWeight: 700,
+    cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.45,
+  };
 }

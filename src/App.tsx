@@ -1,7 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Toaster } from 'sonner';
 import GameSelectPage from './pages/GameSelectPage';
 import HomePage from './pages/HomePage';
 import GamePage from './pages/GamePage';
@@ -14,8 +13,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
   render() {
     if (this.state.error) {
       return (
-        <div style={{ background: '#0A0D14', color: '#F87171', padding: 32, fontFamily: 'monospace', whiteSpace: 'pre-wrap', fontSize: 13 }}>
-          <strong style={{ fontSize: 16, color: '#FCA5A5' }}>Runtime Error</strong>{'\n\n'}{this.state.error}
+        <div style={{ minHeight: '100dvh', background: '#F5F1E8', color: '#17171A', padding: 32, fontFamily: 'monospace', whiteSpace: 'pre-wrap', fontSize: 13 }}>
+          <strong style={{ fontSize: 16 }}>Something went wrong</strong>{'\n\n'}{this.state.error}{'\n\n'}
+          <button onClick={() => location.assign('/')} style={{ fontFamily: 'inherit', padding: '10px 16px', border: '1.5px solid #17171A', borderRadius: 10, background: '#FFFDF8', cursor: 'pointer' }}>Back to Puzzle Play</button>
         </div>
       );
     }
@@ -25,7 +25,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
 
 const fade = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.18 } },
+  animate: { opacity: 1, transition: { duration: 0.2 } },
   exit:    { opacity: 0, transition: { duration: 0.12 } },
 };
 
@@ -51,7 +51,6 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <Toaster position="top-center" richColors toastOptions={{ duration: 3000 }} />
         <AnimatedRoutes />
       </BrowserRouter>
     </ErrorBoundary>
